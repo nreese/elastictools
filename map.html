@@ -1,0 +1,52 @@
+<html ng-app="elasticpipeApp">
+<head>
+  <link rel="stylesheet" href="lib/leaflet.css" />
+</head>
+
+<body ng-controller="MapController">
+  <div>{{appStatus}}</div>
+  <input type="text" name="geohash" placeholder="Elastic Cluster ip:port"
+    ng-model="elastichome"
+    ng-change="loadIndices()"
+    ng-model-options='{ debounce: 1000 }'>
+
+  <select 
+    ng-show="indices.length" 
+    ng-model="selectedIndex" 
+    ng-options="it for it in indices"
+    ng-change="loadFields()">
+  </select>
+
+  <div ng-show="geoPointFields.length">
+    <label for="geopoint">geo_point field</label>
+    <select 
+      name="geopoint"
+      ng-model="selectedGeoPointField" 
+      ng-options="it for it in geoPointFields">
+    </select>
+  </div>
+  <div ng-show="dateFields.length">
+    <label for="datefield">date field</label>
+    <select 
+      name="datefield"
+      ng-model="selectedDateField" 
+      ng-options="it for it in dateFields">
+    </select>
+  </div>
+
+  <div>
+    <button ng-click="start()">Start</button>
+    <button ng-click="">Clear</button>
+  </div>
+
+  <div id="activityMap" style="height: 500px; width: 50%;"></div>
+
+  <script src="lib/latlon-geohash.js"></script>
+  <script src="lib/angular.js"></script>
+  <script>L_PREFER_CANVAS = true;</script>
+  <script src="lib/leaflet.js"></script>
+  <script src="lib/d3.js" charset="utf-8"></script>
+  <script src="map.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
