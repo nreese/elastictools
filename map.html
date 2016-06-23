@@ -1,6 +1,30 @@
 <html ng-app="elasticpipeApp">
 <head>
   <link rel="stylesheet" href="lib/leaflet.css" />
+  <style>
+    .bar {
+      fill: #98df8a;
+    }
+
+    .selectedBar {
+      fill: #2ca02c;
+    }
+
+    .axis {
+      font: 10px sans-serif;
+    }
+
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .x.axis path {
+      display: none;
+    }
+  </style>
 </head>
 
 <body ng-controller="MapController" style="margin: 30px 15px 15px 10px;">
