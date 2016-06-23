@@ -178,7 +178,7 @@ app.controller('MapController', function MapController($scope, es) {
 
   function normalize(bucket) {
     var normalized = 0;
-    if (bucket.seasonal_avg) normalized = bucket.doc_count - bucket.seasonal_avg.value;
+    if (bucket.seasonal_avg) normalized = Math.round(bucket.doc_count - bucket.seasonal_avg.value);
     return normalized;
   }
 
