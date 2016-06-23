@@ -1,4 +1,4 @@
-Map.createMap = function(domId) {
+createMap = function(domId) {
   var reds1 = ['#ff6128'];
   var reds3 = ['#fecc5c', '#fd8d3c', '#e31a1c'];
   var reds5 = ['#fed976', '#feb24c', '#fd8d3c', '#f03b20', '#bd0026'];

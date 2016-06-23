@@ -31,7 +31,12 @@ app.service('es', function($http) {
           "date_histogram": {
             "field": options.dateField,
             "interval": "day",
-            "time_zone": "America/Denver"
+            "time_zone": "America/Denver",
+            "min_doc_count": 0,
+            "extended_bounds": {
+                "min": "2014-08-01T00:00:00.000",
+                "max": "2014-08-30T23:59:59.999"
+            }
           },
           "aggs": {
             "histo_bin_count": {
@@ -97,11 +102,12 @@ app.service('es', function($http) {
 });
 
 app.controller('MapController', function MapController($scope, es) {
-  var activityMap = Map.createMap('activityMap');
+  var timeline = createTimeline('timeline');
+  var activityMap = createMap('activityMap');
   activityMap.onZoom(function() {
     startAggs();
   });
-  var normalizedMap = Map.createMap('normalizedMap');
+  var normalizedMap = createMap('normalizedMap');
   var cachedResults = null;
 
   $scope.indices = [];
@@ -137,6 +143,7 @@ app.controller('MapController', function MapController($scope, es) {
       cachedResults = resp.data;
       drawActivityMap();
       drawNormalizedMap();
+      drawTimeline();
     }, function errorCallback(resp) {
       $scope.appStatus = "Unable to execute POST, ensure CORs is enabled for POST"
     });
@@ -174,6 +181,10 @@ app.controller('MapController', function MapController($scope, es) {
     geoBuckets.forEach(function (bucket) {
       normalizedMap.addMarker(bucket.key, normalize(bucket.date_buckets.buckets[dateBucketIndex]));
     });
+  }
+
+  function drawTimeline() {
+    timeline.draw(cachedResults.aggregations.date_buckets.buckets);
   }
 
   function normalize(bucket) {
