@@ -13,15 +13,81 @@ app.service('es', function($http) {
     var url = 'http://' + elastichome + '/' + index + '/_mapping';
     return $http.get(url);
   }
-  this.agg_geohash = function (index, geoField, prec) {
-    var url = 'http://' + elastichome + '/' + index + '/report/_search';
+  this.fetchData = function (options) {
+    var url = 'http://' + elastichome + '/' + options.index + '/report/_search';
     var post = {
+      "query": {
+        "range": {
+          [options.dateField]: {
+            "gte": "2014-08-01T00:00:00.000", 
+            "lte": "2014-08-30T23:59:59.999", 
+            "time_zone": "America/Denver"
+          }
+        }
+      },
       "size": 0,
       "aggs": {
-        "geohash": {
+        "date_buckets":{
+          "date_histogram": {
+            "field": options.dateField,
+            "interval": "day",
+            "time_zone": "America/Denver"
+          },
+          "aggs": {
+            "histo_bin_count": {
+              "value_count": {
+                "field": options.dateField
+              }
+            },
+            "seasonal_avg": {
+              "moving_avg": {
+                "buckets_path": "histo_bin_count",
+                "window": 30,
+                "model": "holt_winters",
+                "settings": {
+                  "type": "mult",
+                  "period": 7
+                }
+              }  
+            }
+          }
+        },
+        "geo_buckets": {
           "geohash_grid": {
-            "field": geoField,
-            "precision": prec
+            "field": options.geoField,
+            "precision": options.prec
+          },
+          "aggs": {
+            "date_buckets":{
+              "date_histogram": {
+                "field": options.dateField,
+                "interval": "day",
+                "min_doc_count": 0,
+                "extended_bounds": {
+                    "min": "2014-08-01T00:00:00.000",
+                    "max": "2014-08-30T23:59:59.999"
+                },
+                "time_zone": "America/Denver"
+              },
+              "aggs": {
+                "histo_bin_count": {
+                  "value_count": {
+                    "field": options.dateField
+                  }
+                },
+                "seasonal_avg": {
+                  "moving_avg": {
+                    "buckets_path": "histo_bin_count",
+                    "window": 30,
+                    "model": "holt_winters",
+                    "settings": {
+                      "type": "mult",
+                      "period": 7
+                    }
+                  }  
+                }
+              }
+            }
           }
         }
       }
@@ -35,6 +101,8 @@ app.controller('MapController', function MapController($scope, es) {
   activityMap.onZoom(function() {
     startAggs();
   });
+  var normalizedMap = Map.createMap('normalizedMap');
+  var cachedResults = null;
 
   $scope.indices = [];
   $scope.elastichome = "localhost:9200";
@@ -52,27 +120,66 @@ app.controller('MapController', function MapController($scope, es) {
       $scope.appStatus = "Please select an index";
     } else if (!$scope.selectedGeoPointField) {
       $scope.appStatus = "Please select a geo_point field";
+    } else if (!$scope.selectedDateField) {
+      $scope.appStatus = "Please select a date field";
     }
     agg_geohash();
   }
 
   function agg_geohash() {
-    es.agg_geohash($scope.selectedIndex, $scope.selectedGeoPointField, activityMap.getPrecision()).then(function successCallback(resp) {
-      activityMap.clear();
-      var geoBuckets = resp.data.aggregations.geohash.buckets;
-      var min = geoBuckets[0].doc_count;
-      var max = geoBuckets[0].doc_count;
-      geoBuckets.forEach(function (bucket) {
-        if(bucket.doc_count < min) min = bucket.doc_count;
-        if(bucket.doc_count > max) max = bucket.doc_count;
-      });
-      activityMap.setScale(min, max);
-      geoBuckets.forEach(function (bucket) {
-        activityMap.addMarker(bucket.key, bucket.doc_count);
-      });
+    es.fetchData({
+      "index": $scope.selectedIndex, 
+      "geoField": $scope.selectedGeoPointField, 
+      "dateField": $scope.selectedDateField,
+      "geohash_precision": activityMap.getPrecision()
+    })
+    .then(function successCallback(resp) {
+      cachedResults = resp.data;
+      drawActivityMap();
+      drawNormalizedMap();
     }, function errorCallback(resp) {
-      console.debug("error", resp);
+      $scope.appStatus = "Unable to execute POST, ensure CORs is enabled for POST"
     });
+  }
+
+  function drawActivityMap() {
+    activityMap.clear();
+    var dateBucketIndex = 29; //todo - dynamically set from bar chart
+    var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
+    var min = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
+    var max = min;
+    geoBuckets.forEach(function (bucket) {
+      var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
+      if(val < min) min = val;
+      if(val > max) max = val;
+    });
+    activityMap.setScale(min, max);
+    geoBuckets.forEach(function (bucket) {
+      activityMap.addMarker(bucket.key, bucket.date_buckets.buckets[dateBucketIndex].doc_count);
+    });
+  }
+
+  function drawNormalizedMap() {
+    normalizedMap.clear();
+    var dateBucketIndex = 29; //todo - dynamically set from bar chart
+    var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
+    var min = normalize(geoBuckets[0].date_buckets.buckets[dateBucketIndex]);
+    var max = min;
+    geoBuckets.forEach(function (bucket) {
+      var val = normalize(bucket.date_buckets.buckets[dateBucketIndex]);
+      if(val < min) min = val;
+      if(val > max) max = val;
+    });
+    normalizedMap.setScale(min, max);
+    geoBuckets.forEach(function (bucket) {
+      normalizedMap.addMarker(bucket.key, normalize(bucket.date_buckets.buckets[dateBucketIndex]));
+    });
+  }
+
+  function normalize(bucket) {
+    var normalized = 0;
+    if (bucket.seasonal_avg) normalized = bucket.doc_count - bucket.seasonal_avg.value;
+    return normalized;
   }
 
   function loadIndices() {
@@ -93,7 +200,6 @@ app.controller('MapController', function MapController($scope, es) {
     $scope.geoPointFields = [];
     $scope.dateFields = [];
     es.getMapping($scope.selectedIndex).then(function successCallback(resp) {
-      console.debug("resp", resp);
       var props = resp.data[$scope.selectedIndex].mappings.report.properties;
       Object.keys(props).forEach(function (prop) {
         if (props[prop].type === 'geo_point') {

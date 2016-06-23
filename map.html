@@ -3,7 +3,7 @@
   <link rel="stylesheet" href="lib/leaflet.css" />
 </head>
 
-<body ng-controller="MapController">
+<body ng-controller="MapController" style="margin: 30px 15px 15px 10px;">
   <div>{{appStatus}}</div>
   <input type="text" name="geohash" placeholder="Elastic Cluster ip:port"
     ng-model="elastichome"
@@ -39,7 +39,8 @@
     <button ng-click="">Clear</button>
   </div>
 
-  <div id="activityMap" style="height: 500px; width: 50%;"></div>
+  <div id="activityMap" style="height: 500px; width: 50%; float: left;"></div>
+  <div id="normalizedMap" style="height: 500px; width: 50%;"></div>
 
   <script src="lib/latlon-geohash.js"></script>
   <script src="lib/angular.js"></script>
