@@ -103,6 +103,19 @@ app.service('es', function($http) {
 
 app.controller('MapController', function MapController($scope, es) {
   var timeline = createTimeline('timeline');
+  timeline.onSelect(function(key) {
+    var dateBucketIndex = 0;
+    var dateBuckets = cachedResults.aggregations.date_buckets.buckets;
+    for(var i=0; i<dateBuckets.length; i++) {
+      if(dateBuckets[i].key === key) {
+        dateBucketIndex = i;
+        break;
+      }
+    }
+    console.log("redrawing map, date bucket index:" + dateBucketIndex);
+    drawActivityMap(dateBucketIndex);
+    drawNormalizedMap(dateBucketIndex);
+  });
   var activityMap = createMap('activityMap');
   activityMap.onZoom(function() {
     startAggs();
@@ -141,17 +154,14 @@ app.controller('MapController', function MapController($scope, es) {
     })
     .then(function successCallback(resp) {
       cachedResults = resp.data;
-      drawActivityMap();
-      drawNormalizedMap();
       drawTimeline();
     }, function errorCallback(resp) {
       $scope.appStatus = "Unable to execute POST, ensure CORs is enabled for POST"
     });
   }
 
-  function drawActivityMap() {
+  function drawActivityMap(dateBucketIndex) {
     activityMap.clear();
-    var dateBucketIndex = 29; //todo - dynamically set from bar chart
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
     var min = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
     var max = min;
@@ -166,9 +176,8 @@ app.controller('MapController', function MapController($scope, es) {
     });
   }
 
-  function drawNormalizedMap() {
+  function drawNormalizedMap(dateBucketIndex) {
     normalizedMap.clear();
-    var dateBucketIndex = 29; //todo - dynamically set from bar chart
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
     var min = normalize(geoBuckets[0].date_buckets.buckets[dateBucketIndex]);
     var max = min;

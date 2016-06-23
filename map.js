@@ -31,18 +31,14 @@ createMap = function(domId) {
     18: 12
   };
   var maxPrecision = 7;
-
-  var map = L.map(domId).setView([39.73915, -104.9847], 10);
-  var markers = L.layerGroup();
+  var map;
+  var markers;
   var positiveColors;
   var positiveQuantizer;
   var negativeColors;
   var negativeQuantizer;
-  markers.addTo(map);
-  L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
-
+  initMap();
+  
   function geoHashToRect(geohash) {
     var grid = Geohash.bounds(geohash);
     var sw = L.latLng(grid.sw.lat, grid.sw.lon);
@@ -68,9 +64,22 @@ createMap = function(domId) {
     return palette;
   }
 
+  function initMap() {
+    map = L.map(domId).setView([39.73915, -104.9847], 10);
+    markers = L.layerGroup();
+    markers.addTo(map);
+    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+  }
+
   return {
     clear : function() {
-      markers.clearLayers()
+      markers.clearLayers();
+      //leaflet bug - clearLayers does not work with multiple maps
+      //workaround - delete entire map to remove stall data
+      map.remove();
+      initMap();
     },
     getPrecision : function() {
       precision = zoomPrecision[map.getZoom()];
@@ -108,23 +117,25 @@ createMap = function(domId) {
         .range(pickPalette(reds, max - min));
     },
     addMarker : function(geohash, value) {
-      var color = "white";
-      if (value < 0) {
-        color = negativeQuantizer(Math.abs(value));
-      } else {
-        color = positiveQuantizer(value);
+      if(value != 0) {
+        var color = "white";
+        if (value < 0) {
+          color = negativeQuantizer(Math.abs(value));
+        } else {
+          color = positiveQuantizer(value);
+        }
+        //console.log(geohash + ": val=" + value + ", color=" + color);
+        marker = L.rectangle(
+          geoHashToRect(geohash), 
+          {
+            fillColor: color,
+            color: darkerColor(color), 
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.75
+          });
+        markers.addLayer(marker);
       }
-      //console.log(geohash + ": val=" + value + ", color=" + color);
-      marker = L.rectangle(
-        geoHashToRect(geohash), 
-        {
-          fillColor: color,
-          color: darkerColor(color), 
-          weight: 1.5,
-          opacity: 1,
-          fillOpacity: 0.75
-        });
-      markers.addLayer(marker);
     }
   }
 }

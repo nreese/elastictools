@@ -8,7 +8,7 @@ createTimeline = function(domId) {
   var padding = 20;
 
   var selectCallback = function(key) {
-    console.log("No callback specified onSelect.");
+    console.log("Default callback, please pass callback to onSelect.");
   }
 
   function setX(buckets) {
@@ -75,11 +75,14 @@ createTimeline = function(domId) {
           .on("click", function() {
             d3.selectAll(".selectedBar")
               .attr("class", "bar")
-            d3.select(this)
-              .attr("class", "selectedBar");
+            var selected = d3.select(this);
+            selected.attr("class", "selectedBar");
             d3.event.stopPropagation();
-            selectCallback();
+            selectCallback(selected.data()[0].key);
           });
+    },
+    onSelect : function(callback) {
+      selectCallback = callback;
     }
   }
 }
