@@ -103,7 +103,17 @@ app.service('es', function($http) {
 
 app.controller('MapController', function MapController($scope, es) {
   var timeline = createTimeline('timeline');
-  timeline.onSelect(function(key) {
+  
+  var activityMap = createMap('activityMap');
+  activityMap.onZoom(function() {
+    loadData();
+  });
+  var normalizedMap = createMap('normalizedMap');
+  normalizedMap.getMap().sync(activityMap.getMap(), {syncCursor: true});
+  activityMap.getMap().sync(normalizedMap.getMap(), {syncCursor: true});
+  var cachedResults = null;
+
+timeline.onSelect(function(key) {
     var dateBucketIndex = 0;
     var dateBuckets = cachedResults.aggregations.date_buckets.buckets;
     for(var i=0; i<dateBuckets.length; i++) {
@@ -113,15 +123,9 @@ app.controller('MapController', function MapController($scope, es) {
       }
     }
     console.log("redrawing map, date bucket index:" + dateBucketIndex);
-    drawActivityMap(dateBucketIndex);
     drawNormalizedMap(dateBucketIndex);
+    drawActivityMap(dateBucketIndex);
   });
-  var activityMap = createMap('activityMap');
-  activityMap.onZoom(function() {
-    startAggs();
-  });
-  var normalizedMap = createMap('normalizedMap');
-  var cachedResults = null;
 
   $scope.indices = [];
   $scope.elastichome = "localhost:9200";
@@ -133,6 +137,12 @@ app.controller('MapController', function MapController($scope, es) {
   $scope.loadFields = loadFields;
 
   $scope.load = loadData;
+
+  $scope.setView = function() {
+    activityMap.getMap().setView(
+      [$scope.lat, $scope.lon], 
+      $scope.zoom);
+  }
 
   function loadData() {
     if(!$scope.elastichome) {
@@ -166,8 +176,8 @@ app.controller('MapController', function MapController($scope, es) {
     })
     .then(function successCallback(resp) {
       cachedResults = resp.data;
-      activityMap.clear();
-      normalizedMap.clear();
+      //activityMap.clear();
+      //normalizedMap.clear();
       drawTimeline();
     }, function errorCallback(resp) {
       $scope.appStatus = "Unable to execute POST, ensure CORs is enabled for POST"

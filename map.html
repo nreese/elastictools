@@ -47,6 +47,13 @@
     ng-change="loadFields()">
   </select>
 
+  <div style="float: right;">
+    <input type="number" placeholder="lat" ng-model="lat">
+    <input type="number" placeholder="lon" ng-model="lon">
+    <input type="number" placeholder="zoom" ng-model="zoom">
+    <button ng-click="setView()">Set Map View</button>
+  </div>
+
   <div ng-show="geoPointFields.length">
     <label for="geopoint">geo_point field</label>
     <select 
@@ -71,13 +78,14 @@
   </div>
 
   <div id="timeline" style="height: 125px; width: 100%;"></div>
-  <div id="activityMap" style="height: 500px; width: 50%; float: left;"></div>
-  <div id="normalizedMap" style="height: 500px; width: 50%;"></div>
+  <div id="activityMap" style="height: 500px; width: 49.5%; float: left;"></div>
+  <div id="normalizedMap" style="height: 500px; width: 49.5%;"></div>
 
   <script src="lib/latlon-geohash.js"></script>
   <script src="lib/angular.js"></script>
   <script>L_PREFER_CANVAS = true;</script>
   <script src="lib/leaflet.js"></script>
+  <script src="lib/L.Map.Sync.js"></script>
   <script src="lib/d3.js" charset="utf-8"></script>
   <script src="map.js"></script>
   <script src="timeline.js"></script>

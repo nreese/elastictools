@@ -1,4 +1,4 @@
-createMap = function(domId) {
+function createMap(domId) {
   var reds1 = ['#ff6128'];
   var reds3 = ['#fecc5c', '#fd8d3c', '#e31a1c'];
   var reds5 = ['#fed976', '#feb24c', '#fd8d3c', '#f03b20', '#bd0026'];
@@ -31,8 +31,8 @@ createMap = function(domId) {
     18: 12
   };
   var maxPrecision = 7;
-  var map;
-  var markers;
+  var map = null;
+  var markers = null;
   var positiveColors;
   var positiveQuantizer;
   var negativeColors;
@@ -47,7 +47,7 @@ createMap = function(domId) {
   }
 
   function darkerColor(color, amount) {
-    amount = amount || 1.3;
+    var amount = amount || 1.3;
     return d3.hcl(color).darker(amount).toString();
   };
 
@@ -68,21 +68,21 @@ createMap = function(domId) {
     map = L.map(domId).setView([39.73915, -104.9847], 10);
     markers = L.layerGroup();
     markers.addTo(map);
-    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
   }
 
   return {
+    getMap : function() {
+      return map;
+    },
     clear : function() {
+      console.log("before cleared marker to map " + domId);
       markers.clearLayers();
-      //leaflet bug - clearLayers does not work with multiple maps
-      //workaround - delete entire map to remove stall data
-      map.remove();
-      initMap();
+      console.log("cleared marker to map " + domId);
+      console.log("");
     },
     getPrecision : function() {
-      precision = zoomPrecision[map.getZoom()];
+      var precision = zoomPrecision[map.getZoom()];
       if (precision > maxPrecision) {
         return maxPrecision;
       }
@@ -126,7 +126,7 @@ createMap = function(domId) {
         color = positiveQuantizer(value);
       }
       //console.log(geohash + ": val=" + value + ", color=" + color);
-      marker = L.rectangle(
+      var marker = L.rectangle(
         geoHashToRect(geohash), 
         {
           fillColor: color,
