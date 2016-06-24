@@ -24,7 +24,8 @@ createTimeline = function(domId) {
       .range([0, width]);
     const barGap = 4;
 
-    barWidth = xScale(buckets[1].key) - xScale(buckets[0].key) - barGap;
+    barWidth = xScale(buckets[1].key) - xScale(buckets[0].key);
+    if(barWidth > 10) barWidth = barWidth - barGap; //only pad bars when they are large
     if(barWidth <= 0) barWidth = 1; 
   }
 
@@ -42,15 +43,18 @@ createTimeline = function(domId) {
   }
 
   function initVis(buckets) {
+    var svgId = "svg_" + domId;
     width = document.getElementById(domId).offsetWidth;
     height = document.getElementById(domId).offsetHeight;
     setX(buckets);
     setY(buckets);
 
+    d3.select('#' + svgId).remove();
     vis = d3.select('#' + domId)
       .append("svg:svg")
         .attr("width", width)
         .attr("height", height)
+        .attr("id", svgId);
     var xAxis = d3.svg.axis()
       .orient("bottom")
       .scale(xScale);

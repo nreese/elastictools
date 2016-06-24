@@ -19,8 +19,8 @@ app.service('es', function($http) {
       "query": {
         "range": {
           [options.dateField]: {
-            "gte": "2014-08-01T00:00:00.000", 
-            "lte": "2014-08-30T23:59:59.999", 
+            "gte": options.start, 
+            "lte": options.stop, 
             "time_zone": "America/Denver"
           }
         }
@@ -30,12 +30,12 @@ app.service('es', function($http) {
         "date_buckets":{
           "date_histogram": {
             "field": options.dateField,
-            "interval": "day",
+            "interval": options.interval,
             "time_zone": "America/Denver",
             "min_doc_count": 0,
             "extended_bounds": {
-                "min": "2014-08-01T00:00:00.000",
-                "max": "2014-08-30T23:59:59.999"
+                "min": options.start,
+                "max": options.stop
             }
           },
           "aggs": {
@@ -47,11 +47,11 @@ app.service('es', function($http) {
             "seasonal_avg": {
               "moving_avg": {
                 "buckets_path": "histo_bin_count",
-                "window": 30,
+                "window": options.seasonality * 4,
                 "model": "holt_winters",
                 "settings": {
                   "type": "mult",
-                  "period": 7
+                  "period": options.seasonality
                 }
               }  
             }
@@ -66,11 +66,11 @@ app.service('es', function($http) {
             "date_buckets":{
               "date_histogram": {
                 "field": options.dateField,
-                "interval": "day",
+                "interval": options.interval,
                 "min_doc_count": 0,
                 "extended_bounds": {
-                    "min": "2014-08-01T00:00:00.000",
-                    "max": "2014-08-30T23:59:59.999"
+                    "min": options.start,
+                    "max": options.stop
                 },
                 "time_zone": "America/Denver"
               },
@@ -83,11 +83,11 @@ app.service('es', function($http) {
                 "seasonal_avg": {
                   "moving_avg": {
                     "buckets_path": "histo_bin_count",
-                    "window": 30,
+                    "window": options.seasonality * 4,
                     "model": "holt_winters",
                     "settings": {
                       "type": "mult",
-                      "period": 7
+                      "period": options.seasonality
                     }
                   }  
                 }
@@ -125,14 +125,16 @@ app.controller('MapController', function MapController($scope, es) {
 
   $scope.indices = [];
   $scope.elastichome = "localhost:9200";
+  $scope.start = "2014-08-01T00:00:00.000";
+  $scope.stop = "2014-08-30T23:59:59.999";
   loadIndices();
 
   $scope.loadIndices = loadIndices;
   $scope.loadFields = loadFields;
 
-  $scope.start = startAggs;
+  $scope.load = loadData;
 
-  function startAggs() {
+  function loadData() {
     if(!$scope.elastichome) {
       $scope.appStatus = "Please specify elasticsearch ip and port";
     } else if (!$scope.selectedIndex) {
@@ -141,23 +143,59 @@ app.controller('MapController', function MapController($scope, es) {
       $scope.appStatus = "Please select a geo_point field";
     } else if (!$scope.selectedDateField) {
       $scope.appStatus = "Please select a date field";
+    } else if (!$scope.start) {
+      $scope.appStatus = "Please start field, format yyyy-mm-ddTHH:MM:SS.sss";
+    } else if (!$scope.stop) {
+      $scope.appStatus = "Please stop field, format yyyy-mm-ddTHH:MM:SS.sss";
+    } else {
+      agg_geohash();
     }
-    agg_geohash();
   }
 
   function agg_geohash() {
+    var interval = calculateDateHistogramInterval($scope.start, $scope.stop);
     es.fetchData({
       "index": $scope.selectedIndex, 
       "geoField": $scope.selectedGeoPointField, 
       "dateField": $scope.selectedDateField,
-      "geohash_precision": activityMap.getPrecision()
+      "geohash_precision": activityMap.getPrecision(),
+      "start": $scope.start,
+      "stop": $scope.stop,
+      "interval": interval.interval,
+      "seasonality": interval.period
     })
     .then(function successCallback(resp) {
       cachedResults = resp.data;
+      activityMap.clear();
+      normalizedMap.clear();
       drawTimeline();
     }, function errorCallback(resp) {
       $scope.appStatus = "Unable to execute POST, ensure CORs is enabled for POST"
     });
+  }
+
+  //pick interval that provides enough buckets for seasonality
+  function calculateDateHistogramInterval(start, stop) {
+    const MSEC_PER_HOUR =  1000 * 60 * 60;
+    var startDate = Date.parse(start);
+    var stopDate = Date.parse(stop);
+    var duration = stopDate - startDate;
+    var interval = {};
+    if (duration <= MSEC_PER_HOUR * 250) { //less than 3.5 weeks
+      interval.interval = "hour";
+      interval.period = 24;
+    } else if (duration <= MSEC_PER_HOUR * 24 * 250) {
+      interval.interval = "day";
+      interval.period = 7;
+    } else if (duration <= MSEC_PER_HOUR * 24 * 7 * 250) {
+      interval.interval = "week";
+      interval.period = 4;
+    } else {
+      interval.interval = "month";
+      interval.period = 12;
+    }
+    console.log("duration: " + duration + ", interval: " + interval.interval);
+    return interval;
   }
 
   function drawActivityMap(dateBucketIndex) {

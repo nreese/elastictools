@@ -62,11 +62,12 @@
       ng-model="selectedDateField" 
       ng-options="it for it in dateFields">
     </select>
+    <input type="text" placeholder="start" ng-model="start" style="width: 150px;">
+    <input type="text" placeholder="stop" ng-model="stop" style="width: 150px;">
   </div>
 
   <div>
-    <button ng-click="start()">Start</button>
-    <button ng-click="">Clear</button>
+    <button ng-click="load()">Load Data</button>
   </div>
 
   <div id="timeline" style="height: 125px; width: 100%;"></div>
