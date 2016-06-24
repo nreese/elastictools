@@ -29,14 +29,13 @@ createTimeline = function(domId) {
   }
 
   function setY(buckets) {
-    var min = buckets[0].doc_count;
+    var min = 0;
     var max = buckets[0].doc_count;
     buckets.forEach(function(bucket) {
       var val = bucket.doc_count;
       if(bucket.seasonal_avg && bucket.seasonal_avg.value > val) val = bucket.seasonal_avg.value;
-      if(val < min) min = val;
       if(val > max) max = val;
-    }); 
+    });
     yScale = d3.scale.linear()
       .domain([min, max])
       .range([height - padding, 0]);
@@ -61,6 +60,21 @@ createTimeline = function(domId) {
       .call(xAxis);
   }
 
+  function drawMovingAvg(buckets) {
+    var lineFunction = d3.svg.line()
+      .x(function(d) { return xScale(d.key); })
+      .y(function(d) {
+        var y = 0;
+        if(d.seasonal_avg) y = d.seasonal_avg.value;
+        return yScale(y);
+      })
+      .interpolate("linear");
+
+    vis.append("path")
+      .attr("class", "movingAvg")
+      .attr("d", lineFunction(buckets));
+  }
+
   return {
     draw : function(buckets) {
       initVis(buckets);
@@ -80,6 +94,7 @@ createTimeline = function(domId) {
             d3.event.stopPropagation();
             selectCallback(selected.data()[0].key);
           });
+      drawMovingAvg(buckets);
     },
     onSelect : function(callback) {
       selectCallback = callback;
