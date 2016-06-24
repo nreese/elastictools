@@ -179,14 +179,19 @@ app.controller('MapController', function MapController($scope, es) {
   function drawNormalizedMap(dateBucketIndex) {
     normalizedMap.clear();
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
-    var min = normalize(geoBuckets[0].date_buckets.buckets[dateBucketIndex]);
+    /*var min = normalize(geoBuckets[0].date_buckets.buckets[dateBucketIndex]);
     var max = min;
     geoBuckets.forEach(function (bucket) {
       var val = normalize(bucket.date_buckets.buckets[dateBucketIndex]);
       if(val < min) min = val;
       if(val > max) max = val;
+    });*/
+    var max = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
+    geoBuckets.forEach(function (bucket) {
+      var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
+      if(val > max) max = val;
     });
-    normalizedMap.setScale(min, max);
+    normalizedMap.setScale(-1 * max, max);
     geoBuckets.forEach(function (bucket) {
       normalizedMap.addMarker(bucket.key, normalize(bucket.date_buckets.buckets[dateBucketIndex]));
     });
