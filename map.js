@@ -117,25 +117,25 @@ createMap = function(domId) {
         .range(pickPalette(reds, max - min));
     },
     addMarker : function(geohash, value) {
-      if(value != 0) {
-        var color = "white";
-        if (value < 0) {
-          color = negativeQuantizer(Math.abs(value));
-        } else {
-          color = positiveQuantizer(value);
-        }
-        //console.log(geohash + ": val=" + value + ", color=" + color);
-        marker = L.rectangle(
-          geoHashToRect(geohash), 
-          {
-            fillColor: color,
-            color: darkerColor(color), 
-            weight: 1.5,
-            opacity: 1,
-            fillOpacity: 0.75
-          });
-        markers.addLayer(marker);
+      var color = "white";
+      if(value === 0) {
+        color = "lightgrey";
+      } else if (value < 0) {
+        color = negativeQuantizer(Math.abs(value));
+      } else {
+        color = positiveQuantizer(value);
       }
+      //console.log(geohash + ": val=" + value + ", color=" + color);
+      marker = L.rectangle(
+        geoHashToRect(geohash), 
+        {
+          fillColor: color,
+          color: darkerColor(color), 
+          weight: 1.5,
+          opacity: 1,
+          fillOpacity: 0.75
+        });
+      markers.addLayer(marker);
     }
   }
 }
