@@ -14,7 +14,7 @@ app.service('es', function($http) {
     return $http.get(url);
   }
   this.fetchData = function (options) {
-    var url = 'http://' + elastichome + '/' + options.index + '/report/_search';
+    var url = 'http://' + elastichome + '/' + options.index + '/' + options.type + '/_search';
     var post = {
       "query": {
         "range": {
@@ -165,7 +165,8 @@ timeline.onSelect(function(key) {
   function agg_geohash() {
     var interval = calculateDateHistogramInterval($scope.start, $scope.stop);
     es.fetchData({
-      "index": $scope.selectedIndex, 
+      "index": $scope.selectedIndex,
+      "type": $scope.selectedType,
       "geoField": $scope.selectedGeoPointField, 
       "dateField": $scope.selectedDateField,
       "geohash_precision": activityMap.getPrecision(),
@@ -273,7 +274,9 @@ timeline.onSelect(function(key) {
     $scope.geoPointFields = [];
     $scope.dateFields = [];
     es.getMapping($scope.selectedIndex).then(function successCallback(resp) {
-      var props = resp.data[$scope.selectedIndex].mappings.report.properties;
+      var types = Object.keys(resp.data[$scope.selectedIndex].mappings);
+      $scope.selectedType = types[0];
+      var props = resp.data[$scope.selectedIndex].mappings[$scope.selectedType].properties;
       Object.keys(props).forEach(function (prop) {
         if (props[prop].type === 'geo_point') {
           $scope.geoPointFields.push(prop);
