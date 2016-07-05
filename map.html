@@ -34,7 +34,6 @@
 </head>
 
 <body ng-controller="MapController" style="margin: 30px 15px 15px 10px;">
-  <div>{{appStatus}}</div>
   <input type="text" name="geohash" placeholder="Elastic Cluster ip:port"
     ng-model="elastichome"
     ng-change="loadIndices()"
@@ -76,6 +75,8 @@
   <div>
     <button ng-click="load()">Load Data</button>
   </div>
+
+  <div ng-show="appStatus">{{appStatus}}</div>
 
   <div id="timeline" style="height: 125px; width: 100%;"></div>
   <div id="activityMap" style="height: 500px; width: 49.5%; float: left;"></div>

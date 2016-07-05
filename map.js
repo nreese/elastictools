@@ -37,6 +37,7 @@ function createMap(domId) {
   var positiveQuantizer;
   var negativeColors;
   var negativeQuantizer;
+  var intervalId = null;
   initMap();
   
   function geoHashToRect(geohash) {
@@ -71,15 +72,58 @@ function createMap(domId) {
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
   }
 
+  function createMarker(geohash, value) {
+    var color = "white";
+    if(value === 0) {
+      color = "lightgrey";
+    } else if (value < 0) {
+      color = negativeQuantizer(Math.abs(value));
+    } else {
+      color = positiveQuantizer(value);
+    }
+    //console.log(geohash + ": val=" + value + ", color=" + color);
+    return L.rectangle(
+      geoHashToRect(geohash), 
+      {
+        fillColor: color,
+        color: darkerColor(color), 
+        weight: 1.5,
+        opacity: 1,
+        fillOpacity: 0.75
+      });
+  }
+
   return {
+    add : function(grids) {
+      if(intervalId) {
+        window.clearInterval(intervalId);
+      }
+      
+      //don't block UI when drawing grid cells
+      var place = 0;
+      intervalId = setInterval(
+        function() {
+          if(place >= grids.length) {
+            window.clearInterval(intervalId);
+          } else {
+            var stopIndex = place + 250;
+            if(stopIndex > grids.length) stopIndex = grids.length;
+            for(var i=place; i<stopIndex; i++) {
+              place++;
+              markers.addLayer(createMarker(grids[i].key, grids[i].value));
+            }
+          }
+        },
+        200);
+    },
     getMap : function() {
       return map;
     },
     clear : function() {
-      console.log("before cleared marker to map " + domId);
+      if(intervalId) {
+        window.clearInterval(intervalId);
+      }
       markers.clearLayers();
-      console.log("cleared marker to map " + domId);
-      console.log("");
     },
     getPrecision : function() {
       var precision = zoomPrecision[map.getZoom()];
@@ -115,27 +159,6 @@ function createMap(domId) {
       positiveQuantizer = d3.scale.quantize()
         .domain(posDomain)
         .range(pickPalette(reds, max - min));
-    },
-    addMarker : function(geohash, value) {
-      var color = "white";
-      if(value === 0) {
-        color = "lightgrey";
-      } else if (value < 0) {
-        color = negativeQuantizer(Math.abs(value));
-      } else {
-        color = positiveQuantizer(value);
-      }
-      //console.log(geohash + ": val=" + value + ", color=" + color);
-      var marker = L.rectangle(
-        geoHashToRect(geohash), 
-        {
-          fillColor: color,
-          color: darkerColor(color), 
-          weight: 1.5,
-          opacity: 1,
-          fillOpacity: 0.75
-        });
-      markers.addLayer(marker);
     }
   }
 }

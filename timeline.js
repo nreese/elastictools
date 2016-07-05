@@ -6,6 +6,7 @@ createTimeline = function(domId) {
   var width = 100;
   var height = 100;
   var padding = 20;
+  const SVG_ID = "svg_" + domId;
 
   var selectCallback = function(key) {
     console.log("Default callback, please pass callback to onSelect.");
@@ -42,19 +43,22 @@ createTimeline = function(domId) {
       .range([height - padding, 0]);
   }
 
+  function clear() {
+    d3.select('#' + SVG_ID).remove();
+  }
+
   function initVis(buckets) {
-    var svgId = "svg_" + domId;
     width = document.getElementById(domId).offsetWidth;
     height = document.getElementById(domId).offsetHeight;
     setX(buckets);
     setY(buckets);
 
-    d3.select('#' + svgId).remove();
+    clear();
     vis = d3.select('#' + domId)
       .append("svg:svg")
         .attr("width", width)
         .attr("height", height)
-        .attr("id", svgId);
+        .attr("id", SVG_ID);
     var xAxis = d3.svg.axis()
       .orient("bottom")
       .scale(xScale);
@@ -84,6 +88,9 @@ createTimeline = function(domId) {
   }
 
   return {
+    clear : function() {
+      clear();
+    },
     draw : function(buckets) {
       initVis(buckets);
       vis.selectAll(".bar")

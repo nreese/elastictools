@@ -130,9 +130,9 @@ app.controller('MapController', function MapController($scope, es) {
         break;
       }
     }
-    console.log("redrawing map, date bucket index:" + dateBucketIndex);
-    drawNormalizedMap(dateBucketIndex);
+
     drawActivityMap(dateBucketIndex);
+    drawNormalizedMap(dateBucketIndex);
   });
 
   $scope.indices = [];
@@ -171,6 +171,8 @@ app.controller('MapController', function MapController($scope, es) {
   }
 
   function agg_geohash() {
+    $scope.appStatus = "Loading data from elasticsearch..."
+    timeline.clear();
     activityMap.clear();
     normalizedMap.clear();
     cachedResults = null;
@@ -187,6 +189,7 @@ app.controller('MapController', function MapController($scope, es) {
       "seasonality": interval.period
     })
     .then(function successCallback(resp) {
+      $scope.appStatus = null;
       cachedResults = resp.data;
       drawTimeline();
     }, function errorCallback(resp) {
@@ -229,9 +232,14 @@ app.controller('MapController', function MapController($scope, es) {
       if(val > max) max = val;
     });
     activityMap.setScale(min, max);
+    var grids = [];
     geoBuckets.forEach(function (bucket) {
-      activityMap.addMarker(bucket.key, bucket.date_buckets.buckets[dateBucketIndex].doc_count);
+      grids.push({
+        key: bucket.key,
+        value: bucket.date_buckets.buckets[dateBucketIndex].doc_count
+      });
     });
+    activityMap.add(grids);
   }
 
   function drawNormalizedMap(dateBucketIndex) {
@@ -250,9 +258,14 @@ app.controller('MapController', function MapController($scope, es) {
       if(val > max) max = val;
     });
     normalizedMap.setScale(-1 * max, max);
+    var grids = [];
     geoBuckets.forEach(function (bucket) {
-      normalizedMap.addMarker(bucket.key, normalize(bucket.date_buckets.buckets[dateBucketIndex]));
+      grids.push({
+        key: bucket.key,
+        value: normalize(bucket.date_buckets.buckets[dateBucketIndex])
+      });
     });
+    normalizedMap.add(grids);
   }
 
   function drawTimeline() {
