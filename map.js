@@ -103,15 +103,14 @@ function createMap(domId) {
       var place = 0;
       intervalId = setInterval(
         function() {
-          if(place >= grids.length) {
+          var stopIndex = place + 250;
+          if(stopIndex > grids.length) {
+            stopIndex = grids.length;
             window.clearInterval(intervalId);
-          } else {
-            var stopIndex = place + 250;
-            if(stopIndex > grids.length) stopIndex = grids.length;
-            for(var i=place; i<stopIndex; i++) {
-              place++;
-              markers.addLayer(createMarker(grids[i].key, grids[i].value));
-            }
+          }
+          for(var i=place; i<stopIndex; i++) {
+            place++;
+            markers.addLayer(createMarker(grids[i].key, grids[i].value));
           }
         },
         200);
