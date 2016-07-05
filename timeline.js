@@ -79,6 +79,10 @@ createTimeline = function(domId) {
       .attr("d", lineFunction(buckets));
   }
 
+  function makeId(key) {
+    return "date_histo_bucket_" + key;
+  }
+
   return {
     draw : function(buckets) {
       initVis(buckets);
@@ -86,6 +90,7 @@ createTimeline = function(domId) {
         .data(buckets)
         .enter().append("rect")
           .attr("class", "bar")
+          .attr("id", function(d) {return makeId(d.key);})
           .attr("x", function(d) { return xScale(d.key) - (barWidth/2); })
           .attr("width", barWidth)
           .attr("y", function(d) { return yScale(d.doc_count); })
@@ -102,6 +107,12 @@ createTimeline = function(domId) {
     },
     onSelect : function(callback) {
       selectCallback = callback;
+    },
+    selectBucket : function(bucketKey) {
+      var event = document.createEvent("SVGEvents");
+      event.initEvent("click",true,true);
+      var selection = d3.select('#' + makeId(bucketKey));
+      selection[0][0].dispatchEvent(event);
     }
   }
 }

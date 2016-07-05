@@ -60,7 +60,7 @@ app.service('es', function($http) {
         "geo_buckets": {
           "geohash_grid": {
             "field": options.geoField,
-            "precision": options.prec
+            "precision": options.geohash_precision
           },
           "aggs": {
             "date_buckets":{
@@ -102,18 +102,26 @@ app.service('es', function($http) {
 });
 
 app.controller('MapController', function MapController($scope, es) {
+  var lastGeoPrecision = -1;
+  var selectedDateBucket = null;
   var timeline = createTimeline('timeline');
   
   var activityMap = createMap('activityMap');
   activityMap.onZoom(function() {
-    loadData();
+    //only reload data if there is a new percision level 
+    var newPrecision = activityMap.getPrecision();
+    if (newPrecision !== lastGeoPrecision) {
+      lastGeoPrecision = newPrecision;
+      loadData();
+    }
   });
   var normalizedMap = createMap('normalizedMap');
-  normalizedMap.getMap().sync(activityMap.getMap(), {syncCursor: true});
-  activityMap.getMap().sync(normalizedMap.getMap(), {syncCursor: true});
+  normalizedMap.getMap().sync(activityMap.getMap());
+  activityMap.getMap().sync(normalizedMap.getMap());
   var cachedResults = null;
 
-timeline.onSelect(function(key) {
+  timeline.onSelect(function(key) {
+    selectedDateBucket = key;
     var dateBucketIndex = 0;
     var dateBuckets = cachedResults.aggregations.date_buckets.buckets;
     for(var i=0; i<dateBuckets.length; i++) {
@@ -163,6 +171,9 @@ timeline.onSelect(function(key) {
   }
 
   function agg_geohash() {
+    activityMap.clear();
+    normalizedMap.clear();
+    cachedResults = null;
     var interval = calculateDateHistogramInterval($scope.start, $scope.stop);
     es.fetchData({
       "index": $scope.selectedIndex,
@@ -177,8 +188,6 @@ timeline.onSelect(function(key) {
     })
     .then(function successCallback(resp) {
       cachedResults = resp.data;
-      //activityMap.clear();
-      //normalizedMap.clear();
       drawTimeline();
     }, function errorCallback(resp) {
       $scope.appStatus = "Unable to execute POST, ensure CORs is enabled for POST"
@@ -248,6 +257,9 @@ timeline.onSelect(function(key) {
 
   function drawTimeline() {
     timeline.draw(cachedResults.aggregations.date_buckets.buckets);
+    if(selectedDateBucket) {
+      timeline.selectBucket(selectedDateBucket);
+    }
   }
 
   function normalize(bucket) {
