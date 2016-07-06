@@ -32,6 +32,7 @@ function createMap(domId) {
   };
   var maxPrecision = 7;
   var map = null;
+  var legend = null;
   var markers = null;
   var positiveColors;
   var positiveQuantizer;
@@ -93,6 +94,48 @@ function createMap(domId) {
       });
   }
 
+  function format(num) {
+    if (num === 0) return 1;
+    return Math.round(num * 10) / 10;
+  }
+
+  function createLegend() {
+    var levels = [];
+    var colors = positiveQuantizer.range();
+    for(var i=colors.length-1; i>=0; i--) {
+      var numRange = positiveQuantizer.invertExtent(colors[i]);
+      levels.push({
+        color: colors[i],
+        value: format(numRange[1]) + "-" + format(numRange[0])
+      });
+    }
+    levels.push({
+      color: 'lightgrey',
+      value: 0
+    });
+    if(negativeQuantizer) {
+      negativeQuantizer.range().forEach(function(color) {
+        var numRange = negativeQuantizer.invertExtent(color);
+        levels.push({
+          color: color,
+          value: format(numRange[0]) + "-" + format(numRange[1])
+        });
+      });
+    }
+
+    legend = L.control({position: 'bottomright'});
+    legend.onAdd = function () {
+      var levedDiv = L.DomUtil.create('div', 'legend');
+      levels.forEach(function(level) {
+        var levelDiv = L.DomUtil.create('div');
+        levelDiv.innerHTML = '<i style="background:' + level.color + '"></i> ' + level.value;
+        levedDiv.appendChild(levelDiv);
+      });
+      return levedDiv;
+    };
+    legend.addTo(map);
+  }
+
   return {
     add : function(grids) {
       if(intervalId) {
@@ -123,6 +166,10 @@ function createMap(domId) {
         window.clearInterval(intervalId);
       }
       markers.clearLayers();
+      if (legend) {
+        legend.removeFrom(map);
+        legend = null;
+      }
     },
     getPrecision : function() {
       var precision = zoomPrecision[map.getZoom()];
@@ -139,6 +186,7 @@ function createMap(domId) {
     setScale : function(min, max) {
       console.log("Setting scale, min: " + min + ", max: " + max);
       
+      negativeQuantizer = null;
       if(min < 0) {
         var negMax = Math.abs(min);
         min = 0;
@@ -158,6 +206,8 @@ function createMap(domId) {
       positiveQuantizer = d3.scale.quantize()
         .domain(posDomain)
         .range(pickPalette(reds, max - min));
+
+      createLegend();
     }
   }
 }
