@@ -5,6 +5,7 @@ createTimeline = function(domId) {
   var vis;
   var width = 100;
   var height = 100;
+  var leftMargin = 45;
   var padding = 20;
   const SVG_ID = "svg_" + domId;
 
@@ -22,7 +23,7 @@ createTimeline = function(domId) {
 
     xScale = d3.time.scale()
       .domain([mindate, maxdate])
-      .range([0, width]);
+      .range([leftMargin, width]);
     const barGap = 4;
 
     barWidth = xScale(buckets[1].key) - xScale(buckets[0].key);
@@ -59,6 +60,7 @@ createTimeline = function(domId) {
         .attr("width", width)
         .attr("height", height)
         .attr("id", SVG_ID);
+
     var xAxis = d3.svg.axis()
       .orient("bottom")
       .scale(xScale);
@@ -66,6 +68,16 @@ createTimeline = function(domId) {
       .attr("class", "x axis")
       .attr("transform", "translate(0," + (height - padding) + ")")
       .call(xAxis);
+
+    var yAxis = d3.svg.axis()
+      .scale(yScale)
+      .orient("left")
+      .ticks(5);
+    vis.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(" + leftMargin + ",0)")
+      .call(yAxis);
+
   }
 
   function drawMovingAvg(buckets) {
