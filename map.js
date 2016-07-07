@@ -57,8 +57,9 @@ function createMap(domId) {
     var bottomCutoff = 2;
     var middleCutoff = 24;
     var palette = palettes[0];
-    if (numericalRange > bottomCutoff && 
-        numericalRange <= middleCutoff) {
+    if (numericalRange <= bottomCutoff) {
+      palette = palettes[0];
+    } else if (numericalRange <= middleCutoff) {
       palette = palettes[1];
     } else {
       palette = palettes[2];

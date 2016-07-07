@@ -286,11 +286,10 @@ app.controller('MapController', function MapController($scope, es) {
   function drawActivityMap(dateBucketIndex) {
     activityMap.clear();
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
-    var min = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
-    var max = min;
+    var min = 0;
+    var max = 0;
     geoBuckets.forEach(function (bucket) {
       var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
-      if(val < min) min = val;
       if(val > max) max = val;
     });
     activityMap.setScale(min, max);
