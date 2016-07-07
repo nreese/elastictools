@@ -45,15 +45,7 @@ app.service('es', function($http) {
               }
             },
             "seasonal_avg": {
-              "moving_avg": {
-                "buckets_path": "histo_bin_count",
-                "window": options.seasonality * 4,
-                "model": "holt_winters",
-                "settings": {
-                  "type": "mult",
-                  "period": options.seasonality
-                }
-              }  
+              "moving_avg": options.movingAvg
             }
           }
         },
@@ -81,15 +73,7 @@ app.service('es', function($http) {
                   }
                 },
                 "seasonal_avg": {
-                  "moving_avg": {
-                    "buckets_path": "histo_bin_count",
-                    "window": options.seasonality * 4,
-                    "model": "holt_winters",
-                    "settings": {
-                      "type": "mult",
-                      "period": options.seasonality
-                    }
-                  }  
+                  "moving_avg": options.movingAvg
                 }
               }
             }
@@ -100,6 +84,83 @@ app.service('es', function($http) {
     return $http.post(url, post);
   }
 });
+
+app.directive('movingAvgInput', [
+  function(){
+    return {
+      restrict : 'E',
+      scope : {
+        movingAvg : "=ngModel"
+      },
+      link : function(scope, element, attrs){
+        scope.movingAvg = {
+          buildRequest : function(buckets_path, window, period) {
+            var request = {
+              buckets_path: buckets_path,
+              window : window,
+              model : scope.model,
+              settings : {}
+            }
+            if (scope.model === 'ewma') {
+              request.settings.alpha = scope.alpha;
+            }
+            if (scope.model === 'holt') {
+              request.settings.alpha = scope.alpha;
+              request.settings.beta = scope.beta;
+            }
+            if (scope.model === 'holt_winters') {
+              request.settings.alpha = scope.alpha;
+              request.settings.beta = scope.beta;
+              request.settings.gamma = scope.gamma;
+              request.settings.type = "mult";
+              request.settings.period = period;
+            }
+            return request;
+          }
+        };
+        scope.model="holt_winters";
+        scope.alpha = 0.3;
+        scope.beta = 0.1;
+        scope.gamma = 0.3;
+        scope.simpleTooltip = 
+"The simple model calculates the sum of all values in the window, \
+then divides by the size of the window. \
+It is effectively a simple arithmetic mean of the window.";
+        scope.linearTooltip =
+"The linear model assigns a linear weighting to points in the series, \
+such that 'older' datapoints (e.g. those at the beginning of the window) \
+contribute a linearly less amount to the total average.";
+        scope.ewmaTooltip = 
+"The single-exponential model is similar to the linear model, \
+except older data-points become exponentially less important, rather than linearly less important. \
+The speed at which the importance decays can be controlled with an alpha setting. \
+Small values make the weight decay slowly. \
+Larger valuers make the weight decay quickly, which reduces the impact of older values on the moving average";
+        scope.holtTooltip = 
+"The double exponential model incorporates a second exponential term, beta, \
+which tracks the data's slope. \
+Small values emphasize long-term trends (such as a constant linear trend in the whole series), \
+while larger values emphasize short-term trends";
+        scope.holtWintersTooltip = 
+"The triple exponential model incorporates a third exponential term, gamma, \
+which tracks the seasonal aspect of the data";
+      },
+      template:  '<div>\
+                    <span>Moving Average Model<span>\
+                    <select ng-model="model">\
+                      <option value="simple" title={{simpleTooltip}}>simple</option>\
+                      <option value="linear" title={{linearTooltip}}>linear</option>\
+                      <option value="ewma" title={{ewmaTooltip}}>single exponential</option>\
+                      <option value="holt" title={{holtTooltip}}>double exponential</option>\
+                      <option value="holt_winters" title={{holtWintersTooltip}}>triple exponential</option>\
+                    </select>\
+                    <input type="number" step="0.1" min="0" max="1" ng-show="[\'ewma\', \'holt\', \'holt_winters\'].indexOf(model)!=-1" ng-model="alpha" placeholder="alpha"></input>\
+                    <input type="number" step="0.1" min="0" max="1" ng-show="[\'holt\', \'holt_winters\'].indexOf(model)!=-1" ng-model="beta" placeholder="beta"></input>\
+                    <input type="number" step="0.1" min="0" max="1" ng-show="[\'holt_winters\'].indexOf(model)!=-1" ng-model="gamma" placeholder="gamma"></input>\
+                  </div>'
+    };
+  }
+]);
 
 app.controller('MapController', function MapController($scope, es) {
   var lastGeoPrecision = -1;
@@ -135,6 +196,7 @@ app.controller('MapController', function MapController($scope, es) {
     drawNormalizedMap(dateBucketIndex);
   });
 
+  $scope.movingAvg = null; //initialized by directive movingAvgInput
   $scope.indices = [];
   $scope.elastichome = "localhost:9200";
   $scope.start = "2014-08-01T00:00:00.000";
@@ -178,15 +240,15 @@ app.controller('MapController', function MapController($scope, es) {
     cachedResults = null;
     var interval = calculateDateHistogramInterval($scope.start, $scope.stop);
     es.fetchData({
-      "index": $scope.selectedIndex,
-      "type": $scope.selectedType,
-      "geoField": $scope.selectedGeoPointField, 
-      "dateField": $scope.selectedDateField,
-      "geohash_precision": activityMap.getPrecision(),
-      "start": $scope.start,
-      "stop": $scope.stop,
-      "interval": interval.interval,
-      "seasonality": interval.period
+      index: $scope.selectedIndex,
+      type: $scope.selectedType,
+      geoField: $scope.selectedGeoPointField, 
+      dateField: $scope.selectedDateField,
+      geohash_precision: activityMap.getPrecision(),
+      start: $scope.start,
+      stop: $scope.stop,
+      interval: interval.interval,
+      movingAvg: $scope.movingAvg.buildRequest("histo_bin_count", interval.period * 4, interval.period)
     })
     .then(function successCallback(resp) {
       $scope.appStatus = null;
@@ -277,7 +339,10 @@ app.controller('MapController', function MapController($scope, es) {
 
   function normalize(bucket) {
     var normalized = 0;
-    if (bucket.seasonal_avg) normalized = Math.round(bucket.doc_count - bucket.seasonal_avg.value);
+    if (bucket.seasonal_avg) {
+      normalized = Math.round(bucket.doc_count - bucket.seasonal_avg.value);
+      //console.log("bucket count: " + bucket.doc_count + ", seasonal avg: " + bucket.seasonal_avg.value + ", normalized value: " + normalized);
+    }
     return normalized;
   }
 

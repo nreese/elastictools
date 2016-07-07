@@ -92,6 +92,8 @@
     <input type="text" placeholder="stop" ng-model="stop" style="width: 150px;">
   </div>
 
+  <moving-avg-input ng-model="movingAvg" ng-show="dateFields.length"></moving-avg-input>
+
   <div>
     <button ng-click="load()">Load Data</button>
   </div>
