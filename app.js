@@ -74,6 +74,15 @@ app.service('es', function($http) {
                 },
                 "seasonal_avg": {
                   "moving_avg": options.movingAvg
+                },
+                "deviationFromMovavg": {
+                  "bucket_script": {
+                    "buckets_path": {
+                      "count": "histo_bin_count",
+                      "movavg": "seasonal_avg"
+                    },
+                    "script": "(count - movavg).abs()"
+                  }
                 }
               }
             },
@@ -82,9 +91,9 @@ app.service('es', function($http) {
                 "buckets_path": "date_buckets>histo_bin_count"
               }
             },
-            "moving_avg_stats": {
+            "deviationFromMovavg_stats": {
               "extended_stats_bucket": {
-                "buckets_path": "date_buckets>seasonal_avg"
+                "buckets_path": "date_buckets>deviationFromMovavg"
               }
             }
           }
@@ -189,7 +198,10 @@ app.controller('MapController', function MapController($scope, es) {
   activityMap.createLayer("activity", "Activity");
 
   var normalizedMap = QuantizedMap('normalizedMap');
-  normalizedMap.createLayer("movavg", "Deviation from moving avg");
+  const BASELINE_LAYER = "movavg";
+  const STDEV_THRESHOLD_LAYER = "stdevThreshold";
+  normalizedMap.createLayer(BASELINE_LAYER, "Distance from baseline");
+  normalizedMap.createLayer(STDEV_THRESHOLD_LAYER, "Outside STDEV threshold");
   normalizedMap.getMap().sync(activityMap.getMap());
   activityMap.getMap().sync(normalizedMap.getMap());
   var cachedResults = null;
@@ -320,29 +332,41 @@ app.controller('MapController', function MapController($scope, es) {
   function drawNormalizedMap(dateBucketIndex) {
     normalizedMap.clear();
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
-    /*var min = normalize(geoBuckets[0].date_buckets.buckets[dateBucketIndex]);
-    var max = min;
-    geoBuckets.forEach(function (bucket) {
-      var val = normalize(bucket.date_buckets.buckets[dateBucketIndex]);
-      if(val < min) min = val;
-      if(val > max) max = val;
-    });*/
+    
+    var movAvgGrids = [];
     var max = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
+    var stdevGrids = [];
     geoBuckets.forEach(function (bucket) {
       var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
       if(val > max) max = val;
-    });
-    normalizedMap.setScale("movavg", -1 * max, max);
-    var grids = [];
-    geoBuckets.forEach(function (bucket) {
-      grids.push({
+
+      movAvgGrids.push({
         key: bucket.key,
         value: normalize(bucket.date_buckets.buckets[dateBucketIndex])
       });
+
+      var sigmaAlert = 0;
+      if (bucket.date_buckets.buckets[dateBucketIndex].deviationFromMovavg) {
+        var sigma = bucket.date_buckets.buckets[dateBucketIndex].deviationFromMovavg.value / bucket.deviationFromMovavg_stats.std_deviation;
+        if(sigma > 3) sigmaAlert = 1;
+        if(normalize(bucket.date_buckets.buckets[dateBucketIndex]) < 0) sigmaAlert = sigmaAlert * -1
+        console.log(bucket.key + ", sigma: " + sigma + ", distance from baseline: " + bucket.date_buckets.buckets[dateBucketIndex].deviationFromMovavg.value + ", std: " + bucket.deviationFromMovavg_stats.std_deviation);
+      }
+      stdevGrids.push({
+        key: bucket.key,
+        value: sigmaAlert
+      });
     });
-    normalizedMap.add("movavg", grids);
+    normalizedMap.setScale(BASELINE_LAYER, -1 * max, max);
+    normalizedMap.add(BASELINE_LAYER, movAvgGrids);
+
+    normalizedMap.setScale(STDEV_THRESHOLD_LAYER, -1, 1);
+    normalizedMap.add(STDEV_THRESHOLD_LAYER, stdevGrids);
+
     normalizedMap.draw();
   }
+
+  //movavgstd
 
   function drawTimeline() {
     timeline.draw(cachedResults.aggregations.date_buckets.buckets);

@@ -39,36 +39,10 @@ function QuantizedMap(domId) {
     control.addTo(map);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
 
-    map.on('overlayremove', function(e) {
-      console.debug(e, "e");
-      selectedLayerId = null;
-      destroyLegend();
-    });
-    map.on('overlayadd', function(e) {
+    map.on('baselayerchange', function(e) {
       selectedLayerId = findLayerByTitle(e.name);
       createLegend(layers[layerId]);
     });
-  }
-
-  function createMarker(geohash, value) {
-    var color = "white";
-    if(value === 0) {
-      color = "lightgrey";
-    } else if (value < 0) {
-      color = negativeQuantizer(Math.abs(value));
-    } else {
-      color = positiveQuantizer(value);
-    }
-    //console.log(geohash + ": val=" + value + ", color=" + color);
-    return L.rectangle(
-      geoHashToRect(geohash), 
-      {
-        fillColor: color,
-        color: darkerColor(color), 
-        weight: 1.5,
-        opacity: 1,
-        fillOpacity: 0.75
-      });
   }
 
   function format(num) {
@@ -97,6 +71,7 @@ function QuantizedMap(domId) {
   }
 
   function createLegend(quantizedLayer) {
+    console.log("Creating legend for " + quantizedLayer.getTitle());
     destroyLegend();
     var levels = [];
     var colors = quantizedLayer.getPosQuantizer().range();
