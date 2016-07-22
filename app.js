@@ -226,6 +226,7 @@ app.controller('MapController', function MapController($scope, es) {
   $scope.elastichome = "localhost:9200";
   $scope.start = "2014-07-01T00:00:00.000";
   $scope.stop = "2014-08-30T23:59:59.999";
+  $scope.stdevThreshold = 3;
   loadIndices();
 
   $scope.loadIndices = loadIndices;
@@ -332,29 +333,64 @@ app.controller('MapController', function MapController($scope, es) {
   function drawNormalizedMap(dateBucketIndex) {
     normalizedMap.clear();
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
-    
+    var dateBucketWidth = geoBuckets[0].date_buckets.buckets[1].key - geoBuckets[0].date_buckets.buckets[0].key;
+      
     var movAvgGrids = [];
     var max = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
     var stdevGrids = [];
-    geoBuckets.forEach(function (bucket) {
-      var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
+    geoBuckets.forEach(function (geoBucket) {
+      var dateBucket = geoBucket.date_buckets.buckets[dateBucketIndex];
+      var dateSpan = prettyPrintDateSpan(dateBucket.key, dateBucketWidth, "MMM Do YYYY");
+
+      var val = dateBucket.doc_count;
       if(val > max) max = val;
 
+      var normalized = 0;
+      var normalizedTxt = "<h4>" + dateSpan + "</h4>";
+      if (dateBucket.seasonal_avg) {
+        normalizedTxt = normalizedTxt + '\
+        <ul>\
+          <li><strong>Count: </strong>' + dateBucket.doc_count + '</li>\
+          <li><strong>Baseline: </strong>' + dateBucket.seasonal_avg.value + '</li>\
+          <li><strong>Baseline stdev: </strong>' + geoBucket.deviationFromMovavg_stats.std_deviation + '</li>\
+          <li><strong>sigma: </strong>' + sigma + '</li>\
+        </ul>';
+        normalized = Math.round(dateBucket.doc_count - dateBucket.seasonal_avg.value);
+      } else {
+        normalizedTxt = normalizedTxt + "<div>No Data</div>";
+      }
       movAvgGrids.push({
-        key: bucket.key,
-        value: normalize(bucket.date_buckets.buckets[dateBucketIndex])
+        key: geoBucket.key,
+        value: normalize(dateBucket),
+        txt: normalizedTxt
       });
 
       var sigmaAlert = 0;
-      if (bucket.date_buckets.buckets[dateBucketIndex].deviationFromMovavg) {
-        var sigma = bucket.date_buckets.buckets[dateBucketIndex].deviationFromMovavg.value / bucket.deviationFromMovavg_stats.std_deviation;
-        if(sigma > 3) sigmaAlert = 1;
-        if(normalize(bucket.date_buckets.buckets[dateBucketIndex]) < 0) sigmaAlert = sigmaAlert * -1
-        console.log(bucket.key + ", sigma: " + sigma + ", distance from baseline: " + bucket.date_buckets.buckets[dateBucketIndex].deviationFromMovavg.value + ", std: " + bucket.deviationFromMovavg_stats.std_deviation);
+      var sigmaAlertTxt = "<h4>" + dateSpan + "</h4>";
+      if (dateBucket.deviationFromMovavg) {
+        var sigma = dateBucket.deviationFromMovavg.value / geoBucket.deviationFromMovavg_stats.std_deviation;
+        sigmaAlertTxt = sigmaAlertTxt + '\
+        <ul>\
+          <li><strong>Count: </strong>' + dateBucket.doc_count + '</li>\
+          <li><strong>Baseline: </strong>' + dateBucket.seasonal_avg.value + '</li>\
+          <li><strong>Baseline stdev: </strong>' + geoBucket.deviationFromMovavg_stats.std_deviation + '</li>\
+          <li><strong>sigma: </strong>' + sigma + '</li>\
+        </ul>';
+        if(sigma > $scope.stdevThreshold) {
+          sigmaAlertTxt = sigmaAlertTxt + "<div><strong>Activity exceeds expected bounds</strong></div>";
+          sigmaAlert = 1;
+          if(normalize(dateBucket) < 0) sigmaAlert = sigmaAlert * -1
+        } else {
+          sigmaAlertTxt = sigmaAlertTxt + "<div><strong>Activity within expected bounds</strong></div>";
+        }
+        console.log(geoBucket.key + ", sigma: " + sigma + ", distance from baseline: " + dateBucket.deviationFromMovavg.value + ", std: " + geoBucket.deviationFromMovavg_stats.std_deviation);
+      } else {
+        sigmaAlertTxt = sigmaAlertTxt + "<div>No Data</div>";
       }
       stdevGrids.push({
-        key: bucket.key,
-        value: sigmaAlert
+        key: geoBucket.key,
+        value: sigmaAlert,
+        txt: sigmaAlertTxt
       });
     });
     normalizedMap.setScale(BASELINE_LAYER, -1 * max, max);
@@ -366,7 +402,11 @@ app.controller('MapController', function MapController($scope, es) {
     normalizedMap.draw();
   }
 
-  //movavgstd
+  function prettyPrintDateSpan(start, width, format) {
+    var start = moment(start);
+    var end = moment(start + width);
+    return start.format(format) + " to " + end.format(format);
+  }
 
   function drawTimeline() {
     timeline.draw(cachedResults.aggregations.date_buckets.buckets);

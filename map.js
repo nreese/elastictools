@@ -112,7 +112,7 @@ function QuantizedMap(domId) {
   return {
     add : function(layerId, grids) {
       grids.forEach(function(grid) {
-        layers[layerId].addCell(grid.key, grid.value);
+        layers[layerId].addCell(grid.key, grid.value, grid.txt);
       });
       /*if(intervalId) {
         window.clearInterval(intervalId);
@@ -227,7 +227,7 @@ function QuantizedLayer(title) {
   }
 
   return {
-    addCell : function(geohash, value) {
+    addCell : function(geohash, value, popupContent) {
       var color = "white";
       if(value === 0) {
         color = "lightgrey";
@@ -237,18 +237,23 @@ function QuantizedLayer(title) {
         color = _positiveQuantizer(value);
       }
       //console.log(geohash + ": val=" + value + ", color=" + color);
-      _leafletLayer.addLayer(
-        L.rectangle(
-          geoHashToRect(geohash), 
-          {
-            fillColor: color,
-            color: darkerColor(color), 
-            weight: 1.5,
-            opacity: 1,
-            fillOpacity: 0.75
-          }
-        )
-      );
+      var grid = L.rectangle(
+        geoHashToRect(geohash), 
+        {
+          fillColor: color,
+          color: darkerColor(color), 
+          weight: 1.5,
+          opacity: 1,
+          fillOpacity: 0.75
+        });
+      grid.bindPopup(popupContent);
+      grid.on('mouseover', function (e) {
+          this.openPopup();
+      });
+      grid.on('mouseout', function (e) {
+          this.closePopup();
+      });
+      _leafletLayer.addLayer(grid);
     },
     clearLayer : function() {
       _leafletLayer.clearLayers();
