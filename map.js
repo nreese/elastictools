@@ -1,12 +1,4 @@
-function createMap(domId) {
-  var reds1 = ['#ff6128'];
-  var reds3 = ['#fecc5c', '#fd8d3c', '#e31a1c'];
-  var reds5 = ['#fed976', '#feb24c', '#fd8d3c', '#f03b20', '#bd0026'];
-  var reds = [reds1, reds3, reds5];
-  var blues1 = ['#2861ff'];
-  var blues3 = ['#5cccfe', '#3c8dfd', '#1c1ae3'];
-  var blues5 = ['#5cccfe', '#4cb2fe', '#3c8dfd', '#203bf0', '#1c1ae3'];
-  var blues = [blues1, blues3, blues5];
+function QuantizedMap(domId) {
   // zoomPrecision maps event.zoom to a geohash precision value
   // event.limit is the configurable max geohash precision
   // default max precision is 7, configurable up to 12
@@ -32,46 +24,30 @@ function createMap(domId) {
   };
   var maxPrecision = 7;
   var map = null;
+  var control = null;
+  var layers = {};
   var legend = null;
-  var markers = null;
-  var positiveColors;
-  var positiveQuantizer;
-  var negativeColors;
-  var negativeQuantizer;
   var intervalId = null;
+  var selectedLayerId = null;
   initMap();
   
-  function geoHashToRect(geohash) {
-    var grid = Geohash.bounds(geohash);
-    var sw = L.latLng(grid.sw.lat, grid.sw.lon);
-    var ne = L.latLng(grid.ne.lat, grid.ne.lon);
-    return L.latLngBounds(sw, ne);
-  }
-
-  function darkerColor(color, amount) {
-    var amount = amount || 1.3;
-    return d3.hcl(color).darker(amount).toString();
-  };
-
-  function pickPalette(palettes, numericalRange) {
-    var bottomCutoff = 2;
-    var middleCutoff = 24;
-    var palette = palettes[0];
-    if (numericalRange <= bottomCutoff) {
-      palette = palettes[0];
-    } else if (numericalRange <= middleCutoff) {
-      palette = palettes[1];
-    } else {
-      palette = palettes[2];
-    }
-    return palette;
-  }
-
   function initMap() {
-    map = L.map(domId).setView([39.73915, -104.9847], 10);
-    markers = L.layerGroup();
-    markers.addTo(map);
+    map = L.map(domId).setView([39.73915, -104.9847], 9);
+    //markers = L.layerGroup();
+    //markers.addTo(map);
+    control = L.control.layers();
+    control.addTo(map);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
+
+    map.on('overlayremove', function(e) {
+      console.debug(e, "e");
+      selectedLayerId = null;
+      destroyLegend();
+    });
+    map.on('overlayadd', function(e) {
+      selectedLayerId = findLayerByTitle(e.name);
+      createLegend(layers[layerId]);
+    });
   }
 
   function createMarker(geohash, value) {
@@ -100,11 +76,32 @@ function createMap(domId) {
     return Math.round(num * 10) / 10;
   }
 
-  function createLegend() {
+  function findLayerByTitle(title) {
+    layerId = null;
+    var ids = Object.keys(layers);
+    for (var i=0; i<ids.length; i++) {
+      var id = ids[i];
+      if(layers[id].getTitle() === title) {
+        layerId = id;
+        break;
+      }
+    }
+    return layerId;
+  }
+
+  function destroyLegend() {
+    if (legend) {
+      legend.removeFrom(map);
+      legend = null;
+    }
+  }
+
+  function createLegend(quantizedLayer) {
+    destroyLegend();
     var levels = [];
-    var colors = positiveQuantizer.range();
+    var colors = quantizedLayer.getPosQuantizer().range();
     for(var i=colors.length-1; i>=0; i--) {
-      var numRange = positiveQuantizer.invertExtent(colors[i]);
+      var numRange = quantizedLayer.getPosQuantizer().invertExtent(colors[i]);
       levels.push({
         color: colors[i],
         value: format(numRange[1]) + "-" + format(numRange[0])
@@ -114,9 +111,9 @@ function createMap(domId) {
       color: 'lightgrey',
       value: 0
     });
-    if(negativeQuantizer) {
-      negativeQuantizer.range().forEach(function(color) {
-        var numRange = negativeQuantizer.invertExtent(color);
+    if(quantizedLayer.getNegQuantizer()) {
+      quantizedLayer.getNegQuantizer().range().forEach(function(color) {
+        var numRange = quantizedLayer.getNegQuantizer().invertExtent(color);
         levels.push({
           color: color,
           value: format(numRange[0]) + "-" + format(numRange[1])
@@ -126,20 +123,23 @@ function createMap(domId) {
 
     legend = L.control({position: 'bottomright'});
     legend.onAdd = function () {
-      var levedDiv = L.DomUtil.create('div', 'legend');
+      var legendDiv = L.DomUtil.create('div', 'legend');
       levels.forEach(function(level) {
         var levelDiv = L.DomUtil.create('div');
         levelDiv.innerHTML = '<i style="background:' + level.color + '"></i> ' + level.value;
-        levedDiv.appendChild(levelDiv);
+        legendDiv.appendChild(levelDiv);
       });
-      return levedDiv;
+      return legendDiv;
     };
     legend.addTo(map);
   }
 
   return {
-    add : function(grids) {
-      if(intervalId) {
+    add : function(layerId, grids) {
+      grids.forEach(function(grid) {
+        layers[layerId].addCell(grid.key, grid.value);
+      });
+      /*if(intervalId) {
         window.clearInterval(intervalId);
       }
       
@@ -157,7 +157,22 @@ function createMap(domId) {
             markers.addLayer(createMarker(grids[i].key, grids[i].value));
           }
         },
-        200);
+        200);*/
+
+    },
+    createLayer : function(id, title) {
+      if (!(id in layers)) {
+        layers[id] = QuantizedLayer(title);
+        control.addBaseLayer(layers[id].getLayer(), title);
+      }
+    },
+    draw : function() {
+      if(!selectedLayerId) {
+        selectedLayerId = Object.keys(layers)[0];
+        map.addLayer(layers[selectedLayerId].getLayer());
+        console.log("No active layers, defaulting to layer[0]: " + selectedLayerId);
+      }
+      createLegend(layers[selectedLayerId]);
     },
     getMap : function() {
       return map;
@@ -166,11 +181,13 @@ function createMap(domId) {
       if(intervalId) {
         window.clearInterval(intervalId);
       }
-      markers.clearLayers();
       if (legend) {
         legend.removeFrom(map);
         legend = null;
       }
+      Object.keys(layers).forEach(function(id) {
+        layers[id].clearLayer();
+      });
     },
     getPrecision : function() {
       var precision = zoomPrecision[map.getZoom()];
@@ -184,10 +201,98 @@ function createMap(domId) {
         callback();
       });
     },
+    setScale : function(layerId, min, max) {
+      if (!(layerId in layers)) {
+        throw layerId + " layer does not exist.";
+      }
+      layers[layerId].setScale(min, max);
+    }
+  }
+}
+
+function QuantizedLayer(title) {
+  const reds1 = ['#ff6128'];
+  const reds3 = ['#fecc5c', '#fd8d3c', '#e31a1c'];
+  const reds5 = ['#fed976', '#feb24c', '#fd8d3c', '#f03b20', '#bd0026'];
+  const reds = [reds1, reds3, reds5];
+  const blues1 = ['#2861ff'];
+  const blues3 = ['#5cccfe', '#3c8dfd', '#1c1ae3'];
+  const blues5 = ['#5cccfe', '#4cb2fe', '#3c8dfd', '#203bf0', '#1c1ae3'];
+  const blues = [blues1, blues3, blues5];
+
+  var _leafletLayer = L.layerGroup();
+  var _negativeQuantizer = null;
+  var _positiveQuantizer = null;
+  var _title = title;
+
+  function geoHashToRect(geohash) {
+    var grid = Geohash.bounds(geohash);
+    var sw = L.latLng(grid.sw.lat, grid.sw.lon);
+    var ne = L.latLng(grid.ne.lat, grid.ne.lon);
+    return L.latLngBounds(sw, ne);
+  }
+
+  function darkerColor(color, amount) {
+    var amount = amount || 1.3;
+    return d3.hcl(color).darker(amount).toString();
+  };
+
+  function pickPalette(palettes, numericalRange) {
+    var bottomCutoff = 2;
+    var middleCutoff = 24;
+    var palette = palettes[0];
+    if (numericalRange <= bottomCutoff) {
+      palette = palettes[0];
+    } else if (numericalRange <= middleCutoff) {
+      palette = palettes[1];
+    } else {
+      palette = palettes[2];
+    }
+    return palette;
+  }
+
+  return {
+    addCell : function(geohash, value) {
+      var color = "white";
+      if(value === 0) {
+        color = "lightgrey";
+      } else if (value < 0) {
+        color = _negativeQuantizer(Math.abs(value));
+      } else {
+        color = _positiveQuantizer(value);
+      }
+      //console.log(geohash + ": val=" + value + ", color=" + color);
+      _leafletLayer.addLayer(
+        L.rectangle(
+          geoHashToRect(geohash), 
+          {
+            fillColor: color,
+            color: darkerColor(color), 
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.75
+          }
+        )
+      );
+    },
+    clearLayer : function() {
+      _leafletLayer.clearLayers();
+    },
+    getLayer : function() {
+      return _leafletLayer;
+    },
+    getNegQuantizer : function() {
+      return _negativeQuantizer;
+    },
+    getPosQuantizer : function() {
+      return _positiveQuantizer;
+    },
+    getTitle : function() {
+      return _title;
+    },
     setScale : function(min, max) {
       console.log("Setting scale, min: " + min + ", max: " + max);
-      
-      negativeQuantizer = null;
+      _negativeQuantizer = null;
       if(min < 0) {
         var negMax = Math.abs(min);
         min = 0;
@@ -197,18 +302,16 @@ function createMap(domId) {
         console.log("Postitive: min: " + min + ", max: " + max);
         console.log("Negative: min: " + negMin + ", max: " + negMax);
 
-        negDomain = (negMin !== negMax) ? [negMin, negMax] : d3.scale.quantize().domain();
-        negativeQuantizer = d3.scale.quantize()
+        var negDomain = (negMin !== negMax) ? [negMin, negMax] : d3.scale.quantize().domain();
+        _negativeQuantizer = d3.scale.quantize()
           .domain(negDomain)
           .range(pickPalette(blues, negMax - negMin));
       }
 
-      posDomain = (min !== max) ? [min, max] : d3.scale.quantize().domain();
-      positiveQuantizer = d3.scale.quantize()
+      var posDomain = (min !== max) ? [min, max] : d3.scale.quantize().domain();
+      _positiveQuantizer = d3.scale.quantize()
         .domain(posDomain)
         .range(pickPalette(reds, max - min));
-
-      createLegend();
     }
   }
 }

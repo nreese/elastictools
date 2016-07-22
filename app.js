@@ -76,6 +76,16 @@ app.service('es', function($http) {
                   "moving_avg": options.movingAvg
                 }
               }
+            },
+            "count_stats": {
+              "extended_stats_bucket": {
+                "buckets_path": "date_buckets>histo_bin_count"
+              }
+            },
+            "moving_avg_stats": {
+              "extended_stats_bucket": {
+                "buckets_path": "date_buckets>seasonal_avg"
+              }
             }
           }
         }
@@ -167,7 +177,7 @@ app.controller('MapController', function MapController($scope, es) {
   var selectedDateBucket = null;
   var timeline = createTimeline('timeline');
   
-  var activityMap = createMap('activityMap');
+  var activityMap = QuantizedMap('activityMap');
   activityMap.onZoom(function() {
     //only reload data if there is a new percision level 
     var newPrecision = activityMap.getPrecision();
@@ -176,7 +186,10 @@ app.controller('MapController', function MapController($scope, es) {
       loadData();
     }
   });
-  var normalizedMap = createMap('normalizedMap');
+  activityMap.createLayer("activity", "Activity");
+
+  var normalizedMap = QuantizedMap('normalizedMap');
+  normalizedMap.createLayer("movavg", "Deviation from moving avg");
   normalizedMap.getMap().sync(activityMap.getMap());
   activityMap.getMap().sync(normalizedMap.getMap());
   var cachedResults = null;
@@ -199,7 +212,7 @@ app.controller('MapController', function MapController($scope, es) {
   $scope.movingAvg = null; //initialized by directive movingAvgInput
   $scope.indices = [];
   $scope.elastichome = "localhost:9200";
-  $scope.start = "2014-08-01T00:00:00.000";
+  $scope.start = "2014-07-01T00:00:00.000";
   $scope.stop = "2014-08-30T23:59:59.999";
   loadIndices();
 
@@ -292,7 +305,7 @@ app.controller('MapController', function MapController($scope, es) {
       var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
       if(val > max) max = val;
     });
-    activityMap.setScale(min, max);
+    activityMap.setScale("activity", min, max);
     var grids = [];
     geoBuckets.forEach(function (bucket) {
       grids.push({
@@ -300,7 +313,8 @@ app.controller('MapController', function MapController($scope, es) {
         value: bucket.date_buckets.buckets[dateBucketIndex].doc_count
       });
     });
-    activityMap.add(grids);
+    activityMap.add("activity", grids);
+    activityMap.draw();
   }
 
   function drawNormalizedMap(dateBucketIndex) {
@@ -318,7 +332,7 @@ app.controller('MapController', function MapController($scope, es) {
       var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
       if(val > max) max = val;
     });
-    normalizedMap.setScale(-1 * max, max);
+    normalizedMap.setScale("movavg", -1 * max, max);
     var grids = [];
     geoBuckets.forEach(function (bucket) {
       grids.push({
@@ -326,7 +340,8 @@ app.controller('MapController', function MapController($scope, es) {
         value: normalize(bucket.date_buckets.buckets[dateBucketIndex])
       });
     });
-    normalizedMap.add(grids);
+    normalizedMap.add("movavg", grids);
+    normalizedMap.draw();
   }
 
   function drawTimeline() {
