@@ -1,13 +1,17 @@
 Collection of web pages to visualize results of ElasticSearch pipeline aggregations. The goal is to provide a sand box for rapid prototypting to determine which pipeline aggregations are useful and how to arrange the visualizations to convey meaning.
 
-## Enable CORs
-CORS is required since the html file will have a different domain than elasticsearch. Update elasticsearch.yml with the following parameters. Then restart elasticsearch.
+### Configure ElasticSearch
+Update elasticsearch.yml with the following parameters to enable CORS and Groovy scripting. Then restart elasticsearch.
 ```
 http.cors.enabled: true
 http.cors.allow-origin: '*'
 http.cors.allow-methods : OPTIONS, HEAD, GET, POST, PUT, DELETE
 http.cors.allow-headers : X-Requested-With,X-Auth-Token,Content-Type, Content-Length
+script.engine.groovy.inline.aggs: on
 ```
+
+### Loading test data
+Each visualization is designed to run against any elasticsearch index (required the index contains the expected data types - for example `Detecting Geo-Temporal anomalies` visualization requires an index with a geo_point field). If you are looking for a sample dataset with interesting characteristics, then load up the denver crime dataset. The [git repository](https://github.com/FJbob/denver_data) contains the raw csv as well as elasticsearch mapping files, a logstash configuration, and scripts to create the index (with mappings) and load the csv into the index via logstash.
 
 ## Detecting Geo-Temporal anomalies
 Visualization inspired by the [blog post](http://www.front2backdev.com/2016/05/03/geo-temporal-anomaly/) that utilizes a moving average aggregation on the results of a date_histogram aggregation nested within a geohash_grid aggreagation.
