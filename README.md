@@ -1,4 +1,4 @@
-Collection of web pages to visualize results of ElasticSearch pipeline aggregations. The goal is to provide a sand box for rapid prototypting to determine which pipeline aggregations are useful and how to arrange the visualizations to convey meaning.
+The ELK stack provides a robust set of tools for data exploration and visualization. Pipeline aggregations provide the building blocks of a scalable Analytics platform. Unfortunately, Kibana does not yet incorporate pipeline aggregations. This project contains a collection of data analytics experiments utilizing ElasticSearch's pipeline aggregations. The goal is to provide a sand box for rapid prototypting.
 
 ### Configure ElasticSearch
 Update elasticsearch.yml with the following parameters to enable CORS and Groovy scripting. Then restart elasticsearch.
