@@ -317,11 +317,12 @@ app.controller('MapController', function MapController($scope, es) {
     var grids = [];
     geoBuckets.forEach(function (geoBucket) {
       var dateBucket = geoBucket.date_buckets.buckets[dateBucketIndex];
-      if(dateBucket.doc_count > max) max = dateBucket.doc_count;
+      if (dateBucket.doc_count > max) max = dateBucket.doc_count;
       grids.push({
         key: geoBucket.key,
         value: dateBucket.doc_count,
         txt: activityGridTxt(
+          geoBucket.key,
           getDateSpan(geoBuckets[0]),
           cachedResults.aggregations.date_buckets.buckets.length, 
           dateBucket, 
@@ -336,70 +337,47 @@ app.controller('MapController', function MapController($scope, es) {
   function drawNormalizedMap(dateBucketIndex) {
     normalizedMap.clear();
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
-    var dateBucketWidth = geoBuckets[0].date_buckets.buckets[1].key - geoBuckets[0].date_buckets.buckets[0].key;
-      
-    var movAvgGrids = [];
     var max = geoBuckets[0].date_buckets.buckets[dateBucketIndex].doc_count;
+    var movAvgGrids = [];
     var stdevGrids = [];
     geoBuckets.forEach(function (geoBucket) {
       var dateBucket = geoBucket.date_buckets.buckets[dateBucketIndex];
-      var dateSpan = prettyPrintDateSpan(dateBucket.key, dateBucketWidth, "MMM Do YYYY");
-      if(dateBucket.doc_count > max) max = dateBucket.doc_count;
+      if (dateBucket.doc_count > max) max = dateBucket.doc_count;
 
-      var normalized = 0;
-      var normalizedTxt = "<h4>" + dateSpan + "</h4>";
-      if (dateBucket.seasonal_avg) {
-        normalizedTxt = normalizedTxt + '\
-        <ul>\
-          <li><strong>Count: </strong>' + dateBucket.doc_count + '</li>\
-          <li><strong>Baseline: </strong>' + dateBucket.seasonal_avg.value + '</li>\
-          <li><strong>Baseline stdev: </strong>' + geoBucket.deviationFromMovavg_stats.std_deviation + '</li>\
-          <li><strong>sigma: </strong>' + sigma + '</li>\
-        </ul>';
-        normalized = Math.round(dateBucket.doc_count - dateBucket.seasonal_avg.value);
-      } else {
-        normalizedTxt = normalizedTxt + "<div>No Data</div>";
+      var normalized = normalize(dateBucket);
+      var sigmaAlert = 0;
+      var txt = "No Data";
+      if (dateBucket.deviationFromMovavg) {
+        var sigma = dateBucket.deviationFromMovavg.value / geoBucket.deviationFromMovavg_stats.std_deviation;
+        if(sigma > $scope.stdevThreshold) {
+          sigmaAlert = 1;
+          if(normalized < 0) sigmaAlert = sigmaAlert * -1;
+        }
+        txt = normalizedGridTxt(
+          geoBucket.key,
+          getDateSpan(geoBuckets[0]),
+          cachedResults.aggregations.date_buckets.buckets.length, 
+          dateBucket, 
+          geoBucket.deviationFromMovavg_stats,
+          normalized,
+          sigma);
       }
       movAvgGrids.push({
         key: geoBucket.key,
-        value: normalize(dateBucket),
-        txt: normalizedTxt
+        value: normalized,
+        txt: txt
       });
-
-      var sigmaAlert = 0;
-      var sigmaAlertTxt = "<h4>" + dateSpan + "</h4>";
-      if (dateBucket.deviationFromMovavg) {
-        var sigma = dateBucket.deviationFromMovavg.value / geoBucket.deviationFromMovavg_stats.std_deviation;
-        sigmaAlertTxt = sigmaAlertTxt + '\
-        <ul>\
-          <li><strong>Count: </strong>' + dateBucket.doc_count + '</li>\
-          <li><strong>Baseline: </strong>' + dateBucket.seasonal_avg.value + '</li>\
-          <li><strong>Baseline stdev: </strong>' + geoBucket.deviationFromMovavg_stats.std_deviation + '</li>\
-          <li><strong>sigma: </strong>' + sigma + '</li>\
-        </ul>';
-        if(sigma > $scope.stdevThreshold) {
-          sigmaAlertTxt = sigmaAlertTxt + "<div><strong>Activity exceeds expected bounds</strong></div>";
-          sigmaAlert = 1;
-          if(normalize(dateBucket) < 0) sigmaAlert = sigmaAlert * -1
-        } else {
-          sigmaAlertTxt = sigmaAlertTxt + "<div><strong>Activity within expected bounds</strong></div>";
-        }
-        console.log(geoBucket.key + ", sigma: " + sigma + ", distance from baseline: " + dateBucket.deviationFromMovavg.value + ", std: " + geoBucket.deviationFromMovavg_stats.std_deviation);
-      } else {
-        sigmaAlertTxt = sigmaAlertTxt + "<div>No Data</div>";
-      }
       stdevGrids.push({
         key: geoBucket.key,
         value: sigmaAlert,
-        txt: sigmaAlertTxt
+        txt: txt
       });
     });
+
     normalizedMap.setScale(BASELINE_LAYER, -1 * max, max);
     normalizedMap.add(BASELINE_LAYER, movAvgGrids);
-
     normalizedMap.setScale(STDEV_THRESHOLD_LAYER, -1, 1);
     normalizedMap.add(STDEV_THRESHOLD_LAYER, stdevGrids);
-
     normalizedMap.draw();
   }
 
@@ -407,7 +385,7 @@ app.controller('MapController', function MapController($scope, es) {
     return geoBucket.date_buckets.buckets[1].key - geoBucket.date_buckets.buckets[0].key;
   }
 
-  function activityGridTxt(dateSpan, numDateBuckets, dateBucket, countStats) {
+  function activityGridTxt(gridKey, dateSpan, numDateBuckets, dateBucket, countStats) {
     var percent = ((countStats.count / numDateBuckets) * 100).toFixed(1);
     var summary = 'Grid has activity ' + percent + '% of date histogram bins.';
     if(percent < 75) {
@@ -422,7 +400,7 @@ app.controller('MapController', function MapController($scope, es) {
         <dt>Count</dt>\
         <dd>' + dateBucket.doc_count + '</dd>\
       </dl>\
-      <h4 style="margin: 3px 0 1px 0;">Grid Stats</h4>\
+      <h4 style="margin: 3px 0 1px 0;">Count Stats for grid ' + gridKey + '</h4>\
       <p style="margin: 0;">' + summary + '</p>\
       <dl>\
         <dt>Min</dt>\
@@ -433,6 +411,41 @@ app.controller('MapController', function MapController($scope, es) {
         <dd>' + countStats.avg.toFixed(2) + '</dd>\
         <dt>STDEV</dt>\
         <dd>' + countStats.std_deviation.toFixed(2) + '</dd>\
+      </dl>';
+  }
+
+  function normalizedGridTxt(gridKey, dateSpan, numDateBuckets, dateBucket, stats, deviation, sigma) {
+    var percent = ((stats.count / numDateBuckets) * 100).toFixed(1);
+    var summary = 'Grid has activity ' + percent + '% of date histogram bins.';
+    if(percent < 75) {
+      summary += ' <span class="warn small">\
+        Large holes in timeseries data limit the uesfulness of moving averages and statstical analysis. \
+        Take this into consideration when interpreting results about this grid cell.\
+      </span>';
+    }
+    return '\
+      <h4 style="margin: 0 0 1px 0;">' + prettyPrintDateSpan(dateBucket.key, dateSpan, "MMM Do YYYY") + '</h4>\
+      <dl>\
+        <dt>Count</dt>\
+        <dd>' + dateBucket.doc_count + '</dd>\
+        <dt>Expected</dt>\
+        <dd>' + dateBucket.seasonal_avg.value.toFixed(0) + '</dd>\
+        <dt>Deviation</dt>\
+        <dd>' + deviation + '</dd>\
+      </dl>\
+      <h4 style="margin: 3px 0 1px 0;">Deviation Stats for grid ' + gridKey + '</h4>\
+      <p style="margin: 0;">' + summary + '</p>\
+      <dl>\
+        <dt>Min</dt>\
+        <dd>' + stats.min.toFixed(2) + '</dd>\
+        <dt>Max</dt>\
+        <dd>' + stats.max.toFixed(2) + '</dd>\
+        <dt>Avg</dt>\
+        <dd>' + stats.avg.toFixed(2) + '</dd>\
+        <dt>STDEV</dt>\
+        <dd>' + stats.std_deviation.toFixed(2) + '</dd>\
+        <dt>Sigma</dt>\
+        <dd>' + sigma.toFixed(2) + '</dd>\
       </dl>';
   }
 
