@@ -131,6 +131,11 @@
 
   <moving-avg-input ng-model="movingAvg" ng-show="dateFields.length"></moving-avg-input>
 
+  <div ng-show="dateFields.length">
+    <label for="sigmaThreshold">Sigma Threshold</label>
+    <input type="number" step="0.1" min="0" name="sigmaThreshold" ng-model="stdevThreshold" ng-change="recalculateNormalized()">
+  </div>
+
   <div>
     <button ng-click="load()">Load Data</button>
   </div>

@@ -211,15 +211,7 @@ app.controller('MapController', function MapController($scope, es) {
 
   timeline.onSelect(function(key) {
     selectedDateBucket = key;
-    var dateBucketIndex = 0;
-    var dateBuckets = cachedResults.aggregations.date_buckets.buckets;
-    for(var i=0; i<dateBuckets.length; i++) {
-      if(dateBuckets[i].key === key) {
-        dateBucketIndex = i;
-        break;
-      }
-    }
-
+    var dateBucketIndex = getDateBucketIndex(selectedDateBucket);
     drawActivityMap(dateBucketIndex);
     drawNormalizedMap(dateBucketIndex);
   });
@@ -247,6 +239,12 @@ app.controller('MapController', function MapController($scope, es) {
   $scope.togglePopups = function() {
     activityMap.setPopup($scope.popupsEnabled);
     normalizedMap.setPopup($scope.popupsEnabled);
+  }
+
+  $scope.recalculateNormalized = function() {
+    if(cachedResults) {
+      drawNormalizedMap(getDateBucketIndex(selectedDateBucket));
+    }
   }
 
   function loadData() {
@@ -480,6 +478,18 @@ app.controller('MapController', function MapController($scope, es) {
     return normalized;
   }
 
+  function getDateBucketIndex(key) {
+    var dateBucketIndex = 0;
+    var dateBuckets = cachedResults.aggregations.date_buckets.buckets;
+    for(var i=0; i<dateBuckets.length; i++) {
+      if(dateBuckets[i].key === key) {
+        dateBucketIndex = i;
+        break;
+      }
+    }
+    return dateBucketIndex;
+  }
+  
   function loadIndices() {
     $scope.indices = [];
     es.setElasticHome($scope.elastichome);
