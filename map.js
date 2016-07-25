@@ -173,6 +173,11 @@ function QuantizedMap(domId) {
         callback();
       });
     },
+    setPopup : function(flag) {
+      Object.keys(layers).forEach(function(id) {
+        layers[id].setPopup(flag);
+      });
+    },
     setScale : function(layerId, min, max) {
       if (!(layerId in layers)) {
         throw layerId + " layer does not exist.";
@@ -194,6 +199,7 @@ function QuantizedLayer(title) {
 
   var _leafletLayer = L.layerGroup();
   var _negativeQuantizer = null;
+  var _popupEnabled = true;
   var _positiveQuantizer = null;
   var _title = title;
 
@@ -245,7 +251,9 @@ function QuantizedLayer(title) {
         });
       grid.bindPopup(popupContent);
       grid.on('mouseover', function (e) {
-          this.openPopup();
+          if(_popupEnabled) {
+            this.openPopup();
+          }
       });
       grid.on('mouseout', function (e) {
           this.closePopup();
@@ -266,6 +274,9 @@ function QuantizedLayer(title) {
     },
     getTitle : function() {
       return _title;
+    },
+    setPopup : function(flag) {
+      _popupEnabled = flag;
     },
     setScale : function(min, max) {
       console.log("Setting scale, min: " + min + ", max: " + max);

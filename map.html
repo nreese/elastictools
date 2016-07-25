@@ -105,6 +105,9 @@
     <input type="number" placeholder="lon" ng-model="lon">
     <input type="number" placeholder="zoom" ng-model="zoom">
     <button ng-click="setView()">Set Map View</button>
+    <label>Enable Popups
+      <input type="checkbox" ng-model="popupsEnabled" ng-click="togglePopups()">
+    </label>
   </div>
 
   <div ng-show="geoPointFields.length">

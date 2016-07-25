@@ -200,10 +200,13 @@ app.controller('MapController', function MapController($scope, es) {
   var normalizedMap = QuantizedMap('normalizedMap');
   const BASELINE_LAYER = "movavg";
   const STDEV_THRESHOLD_LAYER = "stdevThreshold";
-  normalizedMap.createLayer(BASELINE_LAYER, "Distance from baseline");
+  normalizedMap.createLayer(BASELINE_LAYER, "Deviation from baseline");
   normalizedMap.createLayer(STDEV_THRESHOLD_LAYER, "Outside STDEV threshold");
-  normalizedMap.getMap().sync(activityMap.getMap());
-  activityMap.getMap().sync(normalizedMap.getMap());
+  var syncOptions = {
+    syncCursor: false
+  }
+  normalizedMap.getMap().sync(activityMap.getMap(), syncOptions);
+  activityMap.getMap().sync(normalizedMap.getMap(), syncOptions);
   var cachedResults = null;
 
   timeline.onSelect(function(key) {
@@ -227,6 +230,7 @@ app.controller('MapController', function MapController($scope, es) {
   $scope.start = "2014-07-01T00:00:00.000";
   $scope.stop = "2014-08-30T23:59:59.999";
   $scope.stdevThreshold = 3;
+  $scope.popupsEnabled = true;
   loadIndices();
 
   $scope.loadIndices = loadIndices;
@@ -238,6 +242,11 @@ app.controller('MapController', function MapController($scope, es) {
     activityMap.getMap().setView(
       [$scope.lat, $scope.lon], 
       $scope.zoom);
+  }
+
+  $scope.togglePopups = function() {
+    activityMap.setPopup($scope.popupsEnabled);
+    normalizedMap.setPopup($scope.popupsEnabled);
   }
 
   function loadData() {
