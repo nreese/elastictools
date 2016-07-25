@@ -33,8 +33,6 @@ function QuantizedMap(domId) {
   
   function initMap() {
     map = L.map(domId).setView([39.73915, -104.9847], 9);
-    //markers = L.layerGroup();
-    //markers.addTo(map);
     control = L.control.layers();
     control.addTo(map);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
@@ -71,7 +69,6 @@ function QuantizedMap(domId) {
   }
 
   function createLegend(quantizedLayer) {
-    console.log("Creating legend for " + quantizedLayer.getTitle());
     destroyLegend();
     var levels = [];
     var colors = quantizedLayer.getPosQuantizer().range();

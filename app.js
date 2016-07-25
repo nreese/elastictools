@@ -314,18 +314,21 @@ app.controller('MapController', function MapController($scope, es) {
     var geoBuckets = cachedResults.aggregations.geo_buckets.buckets;
     var min = 0;
     var max = 0;
-    geoBuckets.forEach(function (bucket) {
-      var val = bucket.date_buckets.buckets[dateBucketIndex].doc_count;
-      if(val > max) max = val;
-    });
-    activityMap.setScale("activity", min, max);
     var grids = [];
-    geoBuckets.forEach(function (bucket) {
+    geoBuckets.forEach(function (geoBucket) {
+      var dateBucket = geoBucket.date_buckets.buckets[dateBucketIndex];
+      if(dateBucket.doc_count > max) max = dateBucket.doc_count;
       grids.push({
-        key: bucket.key,
-        value: bucket.date_buckets.buckets[dateBucketIndex].doc_count
+        key: geoBucket.key,
+        value: dateBucket.doc_count,
+        txt: activityGridTxt(
+          getDateSpan(geoBuckets[0]),
+          cachedResults.aggregations.date_buckets.buckets.length, 
+          dateBucket, 
+          geoBucket.count_stats)
       });
     });
+    activityMap.setScale("activity", min, max);
     activityMap.add("activity", grids);
     activityMap.draw();
   }
@@ -341,9 +344,7 @@ app.controller('MapController', function MapController($scope, es) {
     geoBuckets.forEach(function (geoBucket) {
       var dateBucket = geoBucket.date_buckets.buckets[dateBucketIndex];
       var dateSpan = prettyPrintDateSpan(dateBucket.key, dateBucketWidth, "MMM Do YYYY");
-
-      var val = dateBucket.doc_count;
-      if(val > max) max = val;
+      if(dateBucket.doc_count > max) max = dateBucket.doc_count;
 
       var normalized = 0;
       var normalizedTxt = "<h4>" + dateSpan + "</h4>";
@@ -400,6 +401,39 @@ app.controller('MapController', function MapController($scope, es) {
     normalizedMap.add(STDEV_THRESHOLD_LAYER, stdevGrids);
 
     normalizedMap.draw();
+  }
+
+  function getDateSpan(geoBucket) {
+    return geoBucket.date_buckets.buckets[1].key - geoBucket.date_buckets.buckets[0].key;
+  }
+
+  function activityGridTxt(dateSpan, numDateBuckets, dateBucket, countStats) {
+    var percent = ((countStats.count / numDateBuckets) * 100).toFixed(1);
+    var summary = 'Grid has activity ' + percent + '% of date histogram bins.';
+    if(percent < 75) {
+      summary += ' <span class="warn small">\
+        Large holes in timeseries data limit the uesfulness of moving averages and statstical analysis. \
+        Take this into consideration when interpreting results about this grid cell.\
+      </span>';
+    }
+    return '\
+      <h4 style="margin: 0 0 1px 0;">' + prettyPrintDateSpan(dateBucket.key, dateSpan, "MMM Do YYYY") + '</h4>\
+      <dl>\
+        <dt>Count</dt>\
+        <dd>' + dateBucket.doc_count + '</dd>\
+      </dl>\
+      <h4 style="margin: 3px 0 1px 0;">Grid Stats</h4>\
+      <p style="margin: 0;">' + summary + '</p>\
+      <dl>\
+        <dt>Min</dt>\
+        <dd>' + countStats.min + '</dd>\
+        <dt>Max</dt>\
+        <dd>' + countStats.max + '</dd>\
+        <dt>Avg</dt>\
+        <dd>' + countStats.avg.toFixed(2) + '</dd>\
+        <dt>STDEV</dt>\
+        <dd>' + countStats.std_deviation.toFixed(2) + '</dd>\
+      </dl>';
   }
 
   function prettyPrintDateSpan(start, width, format) {
