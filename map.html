@@ -1,6 +1,7 @@
 <html ng-app="elasticpipeApp">
 <head>
   <link rel="stylesheet" href="lib/leaflet.css" />
+  <link rel="stylesheet" href="lib/leaflet.rrose.css" />
   <style>
     .bar {
       fill: #98df8a;
@@ -65,6 +66,7 @@
       width: 100%;
       overflow: hidden;
       background: white;
+      font-size: 0.8em;
       padding: 0;
       margin: 0;
     }
@@ -143,14 +145,15 @@
   <div ng-show="appStatus">{{appStatus}}</div>
 
   <div id="timeline" style="height: 125px; width: 100%;"></div>
-  <div id="activityMap" style="height: 500px; width: 49.5%; float: left;"></div>
-  <div id="normalizedMap" style="height: 500px; width: 49.5%;"></div>
+  <div id="activityMap" style="height: 600px; width: 49.5%; float: left;"></div>
+  <div id="normalizedMap" style="height: 600px; width: 49.5%;"></div>
 
   <script src="lib/latlon-geohash.js"></script>
   <script src="lib/angular.js"></script>
   <!--<script>L_PREFER_CANVAS = true;</script>-->
   <script src="lib/leaflet.js"></script>
   <script src="lib/L.Map.Sync.js"></script>
+  <script src="lib/leaflet.rrose-src.js"></script>
   <script src="lib/d3.js" charset="utf-8"></script>
   <script src="lib/moment.min.js"></script>
   <script src="map.js"></script>

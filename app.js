@@ -398,7 +398,6 @@ app.controller('MapController', function MapController($scope, es) {
     if(percent < 75) {
       summary += ' <span class="warn small">\
         Large holes in timeseries data limit the uesfulness of moving averages and statstical analysis. \
-        Take this into consideration when interpreting results about this grid cell.\
       </span>';
     }
     return '\

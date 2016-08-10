@@ -249,7 +249,13 @@ function QuantizedLayer(title) {
           opacity: 1,
           fillOpacity: 0.75
         });
-      grid.bindPopup(popupContent);
+      grid.bindPopup(
+        new L.Rrose(
+          { 
+            offset: new L.Point(0,-10), 
+            closeButton: false, 
+            autoPan: false 
+          }).setContent(popupContent));
       grid.on('mouseover', function (e) {
           if(_popupEnabled) {
             this.openPopup();
