@@ -12,19 +12,12 @@ app.service('es', function($http) {
   this.getMapping = function (index) {
     var url = 'http://' + elastichome + '/' + index + '/_mapping';
     return $http.get(url);
-  }
+  } 
   this.fetchData = function (options) {
     var url = 'http://' + elastichome + '/' + options.index + '/' + options.type + '/_search';
+    
     var post = {
-      "query": {
-        "range": {
-          [options.dateField]: {
-            "gte": options.start, 
-            "lte": options.stop, 
-            "time_zone": "America/Denver"
-          }
-        }
-      },
+      "query": buildQuery(options),
       "size": 0,
       "aggs": {
         "date_buckets":{
@@ -101,6 +94,39 @@ app.service('es', function($http) {
       }
     }
     return $http.post(url, post);
+  }
+
+  function buildQuery (options) {
+    var queryString = '*';
+    if(options.queryString) queryString = options.queryString;
+    return {
+      "filtered": {
+        "filter": {
+          "bool": {
+            "must": [
+              {
+                "query": {
+                  "query_string": {
+                    "query": queryString,
+                    "analyze_wildcard": true
+                  }
+                }
+              },
+              {
+                "range": {
+                  [options.dateField]: {
+                    "gte": options.start, 
+                    "lte": options.stop, 
+                    "time_zone": "America/Denver"
+                  }
+                }
+              }
+            ],
+            "must_not": []
+          }
+        }
+      }
+    }
   }
 });
 
@@ -281,7 +307,8 @@ app.controller('MapController', function MapController($scope, es) {
       start: $scope.start,
       stop: $scope.stop,
       interval: interval.interval,
-      movingAvg: $scope.movingAvg.buildRequest("histo_bin_count", interval.period * 4, interval.period)
+      movingAvg: $scope.movingAvg.buildRequest("histo_bin_count", interval.period * 4, interval.period),
+      queryString: $scope.luceneQuery
     })
     .then(function successCallback(resp) {
       $scope.appStatus = null;
