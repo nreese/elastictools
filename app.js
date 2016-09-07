@@ -101,17 +101,16 @@ app.service('es', function($http) {
     if(options.queryString) queryString = options.queryString;
     return {
       "filtered": {
+        "query" : {
+          "query_string": {
+            "query": queryString,
+            "analyze_wildcard": true,
+            "lowercase_expanded_terms": false
+          }
+        },
         "filter": {
           "bool": {
             "must": [
-              {
-                "query": {
-                  "query_string": {
-                    "query": queryString,
-                    "analyze_wildcard": true
-                  }
-                }
-              },
               {
                 "range": {
                   [options.dateField]: {
