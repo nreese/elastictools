@@ -32,7 +32,10 @@ function QuantizedMap(domId) {
   initMap();
   
   function initMap() {
-    map = L.map(domId).setView([39.73915, -104.9847], 9);
+    const options = {
+      renderer: L.canvas()
+    }
+    map = L.map(domId, options).setView([39.73915, -104.9847], 9);
     control = L.control.layers();
     control.addTo(map);
     L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
@@ -63,7 +66,7 @@ function QuantizedMap(domId) {
 
   function destroyLegend() {
     if (legend) {
-      legend.removeFrom(map);
+      legend.remove(map);
       legend = null;
     }
   }
@@ -154,7 +157,7 @@ function QuantizedMap(domId) {
         window.clearInterval(intervalId);
       }
       if (legend) {
-        legend.removeFrom(map);
+        legend.remove(map);
         legend = null;
       }
       Object.keys(layers).forEach(function(id) {
